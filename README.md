@@ -28,7 +28,7 @@ Para um arquivo `.sng`, extraia com:
 node tools/sng.js "musica.sng" "assets/ritmo/Nome da Música"
 ```
 
-Teclas: bateria D F J K e Espaço (bumbo). Guitarra como no Guitar Hero III: segure D F J K L e palhete com Espaço, Enter ou ↑/↓; hammer-on/pull-off sai só trocando a casa; Shift ativa o Star Power.
+Teclas: bateria D F J K e Espaço (bumbo). Guitarra: aperte D F J K L na hora da nota (acorde: todas juntas); segure nas notas longas; Shift ativa o Star Power.
 
 ## Pastas
 

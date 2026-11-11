@@ -291,7 +291,7 @@ function hud(now) {
   ctx.textAlign = 'center';
   if (now < 0) { ctx.font = `900 46px ${FONT}`; ctx.fillStyle = '#fff'; ctx.shadowColor = '#000'; ctx.shadowBlur = 10; ctx.fillText(Math.ceil(-now), CX, 170); ctx.shadowBlur = 0 }
   ctx.font = `800 10px ${FONT}`; ctx.fillStyle = 'rgba(255,255,255,.75)'; S.lanes.forEach(([, k], i) => ctx.fillText(k.toUpperCase(), xOf(laneU(i), 0), yOf(0) + 4));
-  ctx.shadowColor = '#000'; ctx.shadowBlur = 4; ctx.fillText(S.drums ? 'ESPAÇO = bumbo' : 'segure as casas e palhete: ESPAÇO / ENTER / ↑↓   ·   SHIFT: Star Power', CX, H - 6); ctx.shadowBlur = 0;
+  ctx.shadowColor = '#000'; ctx.shadowBlur = 4; ctx.fillText(S.drums ? 'ESPAÇO = bumbo' : 'SHIFT: Star Power', CX, H - 6); ctx.shadowBlur = 0;
   // barra de Star Power (4 partes) em cima do painel de pontos
   for (let i = 0; i < 4; i++) { const f = clamp(S.sp * 4 - i, 0, 1); ctx.fillStyle = '#0c0d10'; ctx.fillRect(22 + i * 23, 180, 21, 10); ctx.fillStyle = S.spOn ? '#9ae8ff' : '#3aa8ff'; ctx.fillRect(23 + i * 23, 181, 19 * f, 8) }
   if (S.sp >= .5 && !S.spOn && Math.floor(S.t * 3) % 2) { ctx.font = `900 10px ${FONT}`; ctx.fillStyle = '#9ae8ff'; ctx.fillText('SHIFT: STAR POWER!', 68, 175) }
@@ -300,10 +300,9 @@ function hud(now) {
 }
 
 /* ---------------- jogo ---------------- */
-// Guitarra (como no GH3): segure as casas e palhete (Espaço, Enter ou setas ↑/↓). Hammer-on/pull-off sai só trocando
-// a casa, se você vinha acertando. Notas longas: segure para ganhar pontos. Trechos de Star Power completos enchem a barra;
+// Guitarra: aperte a casa na hora da nota (acorde: todas as casas dele apertadas); não tem palhetada.
+// Notas longas: segure para ganhar pontos. Trechos de Star Power completos enchem a barra;
 // com Shift ela é ativada: multiplicador dobra e o medidor de rock sobe mais rápido. Bateria: cada pista é uma tecla.
-const STRUM = ['Enter', 'ArrowUp', 'ArrowDown', ' '];
 function songTime() { return S.startAt ? ac().currentTime - S.startAt - S.delay : -3 }
 function scoreHit(lanes, n) {
   S.streak++; S.mult = Math.min(4, 1 + Math.floor(S.streak / 10));
@@ -331,13 +330,11 @@ function hitChord(c) {
   if (c.end) S.sus = c;   // nota longa: começa a contar enquanto as casas ficam apertadas
   scoreHit(c.lanes, c);
 }
-function strum() {
+function press() {   // apertou uma casa: acerta se a próxima nota bate; no vazio, quebra a sequência; acorde pela metade espera o resto
   const now = songTime(), c = nextChord(now);
   if (c && fretsOk(c)) return hitChord(c);
-  if (now - S.lastHitAt < .06) return;   // palhetada logo depois de um hammer-on: não pune
-  S.chain = false; breakStreak(.02); tone(140, .06, 'square', .03);   // palhetou errado ou no vazio
+  if (!c && now - S.lastHitAt > .06) breakStreak();
 }
-function tryHopo() { const now = songTime(), c = nextChord(now); if (c && c.hopo && S.chain && fretsOk(c)) hitChord(c) }
 function missed(n) {
   n.done = true; n.miss = true; S.chain = false; breakStreak(.04); tone(110, .08, 'sawtooth', .04);
   if (n.sp >= 0) S.spBroken.add(n.sp);
@@ -379,16 +376,15 @@ function onKey(e) {
   if (!S) return; e.preventDefault(); e.stopPropagation();
   const k = e.key.length === 1 ? e.key.toLowerCase() : e.key, up = e.type === 'keyup';
   const fret = S.lanes.findIndex(([, key]) => key === k);
-  if (!S.drums && fret >= 0) {   // casas da guitarra: apertar e soltar contam (hammer-on e pull-off)
-    if (S.held[fret] === !up) return; S.held[fret] = !up; if (!up) S.press[fret] = .12;
-    if (!S.end && S.startAt) tryHopo(); return;
+  if (!S.drums && fret >= 0) {   // casas da guitarra
+    if (S.held[fret] === !up) return; S.held[fret] = !up;
+    if (!up) { S.press[fret] = .12; if (!S.end && S.startAt) press() } return;
   }
   if (up || e.repeat) return;
   if (S.end) { if (S.won && (k === 'z' || k === 'Enter')) close(true); else if (!S.won && (k === 'z' || k === 'Enter')) restart(); else if (!S.won && k === 'Escape') close(false); return }
   if (k === 'Escape') { S.end = true; S.won = false; for (const { src } of S.play || []) try { src.stop() } catch {} return close(false) }
   if (k === 'Shift' && S.sp >= .5 && !S.spOn) { S.spOn = true; S.spFlash = 1; [523, 784, 1046, 1568].forEach((f, i) => setTimeout(() => tone(f, .15, 'sawtooth', .04), i * 50)); return }   // ativa Star Power
-  if (S.drums) { if (k === ' ') hitDrum(-1); else if (fret >= 0) { S.press[fret] = .12; hitDrum(fret) } return }
-  if (STRUM.includes(e.key)) { S.strumT = .1; strum() }
+  if (S.drums) { if (k === ' ') hitDrum(-1); else if (fret >= 0) { S.press[fret] = .12; hitDrum(fret) } }
 }
 function restart() { for (const { src } of S.play) try { src.stop() } catch {} Object.assign(S, fresh(S.song)); startAudio() }
 function fresh(song) {
