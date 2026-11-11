@@ -109,103 +109,151 @@ async function loadSong() {
 }
 
 /* ---------------- perspectiva da pista ---------------- */
-const CX = 248, YH = 300, YV = -52, BW = 330, ZTOP = 1.7;   // centro, linha de batida, ponto de fuga, largura na linha, fundo da pista
+const CX = 320, YH = 316, YV = -87, BW = 380, ZTOP = 1.78;   // centro, linha de batida, ponto de fuga, largura na linha, fundo da pista
 const sOf = z => 1 / (1 + z), yOf = z => YV + (YH - YV) * sOf(z), xOf = (u, z) => CX + u * BW * sOf(z);   // u: -0.5 (borda esq.) a 0.5
+const zOfY = y => (YH - YV) / (y - YV) - 1;
 function quad(u0, u1, z0, z1) { ctx.beginPath(); ctx.moveTo(xOf(u0, z0), yOf(z0)); ctx.lineTo(xOf(u1, z0), yOf(z0)); ctx.lineTo(xOf(u1, z1), yOf(z1)); ctx.lineTo(xOf(u0, z1), yOf(z1)); ctx.closePath() }
-const laneU = i => -0.5 + (i + .5) / S.lanes.length * .92 + .04;
+const laneU = i => -0.5 + (i + .5) / S.lanes.length * .9 + .05;
+const SPEED = ZTOP / LOOK;   // unidades de pista por segundo
+
+/* ---------------- texturas desenhadas uma vez ---------------- */
+function mk(w, h, f) { const c = document.createElement('canvas'); c.width = w; c.height = h; f(c.getContext('2d'), w, h); return c }
+// Pista: couro marrom escuro com fileiras de rebites e placas de metal gastas (arte própria). Repete na vertical.
+const BOARD = mk(256, 256, (g, w, h) => {
+  g.fillStyle = '#3a2418'; g.fillRect(0, 0, w, h);
+  for (let i = 0; i < 900; i++) { g.fillStyle = `rgba(${Math.random() < .5 ? '0,0,0' : '255,220,180'},${Math.random() * .06})`; g.fillRect(Math.random() * w, Math.random() * h, 2 + Math.random() * 6, 1 + Math.random() * 3) }
+  for (let r = 0; r < 4; r++) for (let c = 0; c < 5; c++) {   // placas com cantos parafusados
+    const x = c * 52 + (r % 2) * 26 - 10, y = r * 64 + 8;
+    g.fillStyle = 'rgba(20,10,6,.55)'; g.beginPath(); g.roundRect(x + 2, y + 3, 44, 50, 6); g.fill();
+    const m = g.createLinearGradient(x, y, x + 44, y + 50); m.addColorStop(0, '#6b4a34'); m.addColorStop(1, '#2c1a10'); g.fillStyle = m; g.beginPath(); g.roundRect(x, y, 44, 50, 6); g.fill();
+    g.strokeStyle = 'rgba(0,0,0,.5)'; g.lineWidth = 2; g.stroke();
+    g.strokeStyle = 'rgba(255,200,150,.12)'; g.beginPath(); g.moveTo(x + 8, y + 25); g.lineTo(x + 22, y + 10); g.lineTo(x + 36, y + 25); g.lineTo(x + 22, y + 40); g.closePath(); g.stroke();
+    for (const [px, py] of [[6, 6], [38, 6], [6, 44], [38, 44]]) { const b = g.createRadialGradient(x + px - 1, y + py - 1, 0, x + px, y + py, 3.5); b.addColorStop(0, '#e8d0b0'); b.addColorStop(1, '#4a3020'); g.fillStyle = b; g.beginPath(); g.arc(x + px, y + py, 3, 0, 7); g.fill() }
+  }
+});
+// Palco: parede de tijolos avermelhada, piso de tábuas, caixas de som e torres de luz.
+const STAGE = mk(W, H, (g) => {
+  const wall = g.createLinearGradient(0, 0, 0, 200); wall.addColorStop(0, '#3a1a14'); wall.addColorStop(1, '#5a2a1c'); g.fillStyle = wall; g.fillRect(0, 0, W, 200);
+  for (let y = 0; y < 200; y += 12) for (let x = (y / 12 % 2) * 14; x < W; x += 28) { g.fillStyle = `rgba(${120 + Math.random() * 40},${50 + Math.random() * 20},40,.35)`; g.fillRect(x + 1, y + 1, 26, 10) }
+  const fl = g.createLinearGradient(0, 180, 0, H); fl.addColorStop(0, '#4a2c1c'); fl.addColorStop(1, '#2a160c'); g.fillStyle = fl; g.fillRect(0, 180, W, H - 180);
+  g.strokeStyle = 'rgba(0,0,0,.35)'; g.lineWidth = 1;
+  for (let i = -30; i <= 30; i++) { g.beginPath(); g.moveTo(CX + i * 14, 180); g.lineTo(CX + i * 60, H); g.stroke() }   // tábuas em perspectiva
+  for (const y of [195, 215, 245, 290, 345]) { g.beginPath(); g.moveTo(0, y); g.lineTo(W, y); g.stroke() }
+  const amp = (x, y, w, h) => {   // caixa de som
+    g.fillStyle = '#121014'; g.fillRect(x, y, w, h); g.strokeStyle = '#2c2830'; g.lineWidth = 2; g.strokeRect(x + 1, y + 1, w - 2, h - 2);
+    const r = Math.min(w, h / 2) * .32; for (const [cx, cy] of [[x + w * .3, y + h * .28], [x + w * .7, y + h * .28], [x + w * .3, y + h * .72], [x + w * .7, y + h * .72]]) {
+      g.fillStyle = '#26222a'; g.beginPath(); g.arc(cx, cy, r, 0, 7); g.fill(); g.fillStyle = '#0a090c'; g.beginPath(); g.arc(cx, cy, r * .55, 0, 7); g.fill() }
+  };
+  amp(20, 110, 60, 80); amp(88, 128, 46, 62); amp(560, 104, 64, 86); amp(506, 130, 46, 60);
+  g.strokeStyle = '#8a8d94'; g.lineWidth = 1;   // treliças das luzes
+  for (const x of [150, 480]) { for (let y = 10; y < 190; y += 12) { g.beginPath(); g.moveTo(x, y); g.lineTo(x + 12, y + 12); g.moveTo(x + 12, y); g.lineTo(x, y + 12); g.stroke() } g.strokeRect(x, 10, 12, 180) }
+  const v = g.createRadialGradient(CX, 120, 60, CX, 180, 420); v.addColorStop(0, 'rgba(0,0,0,0)'); v.addColorStop(1, 'rgba(0,0,0,.6)'); g.fillStyle = v; g.fillRect(0, 0, W, H);
+});
 
 /* ---------------- desenho ---------------- */
 function draw() {
-  const now = songTime();
-  const g = ctx.createRadialGradient(W * .42, -40, 20, W * .45, H * .4, W * .8);
-  g.addColorStop(0, '#2a86c8'); g.addColorStop(.55, '#17435f'); g.addColorStop(1, '#1b1d33'); ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
-  // pista
-  const bg = ctx.createLinearGradient(0, yOf(ZTOP), 0, H); bg.addColorStop(0, '#24262c'); bg.addColorStop(1, '#0f1013');
-  quad(-.5, .5, -.32, ZTOP); ctx.fillStyle = bg; ctx.fill();
-  ctx.save(); quad(-.5, .5, -.32, ZTOP); ctx.clip();   // ornamento discreto no fundo da pista
-  ctx.strokeStyle = 'rgba(255,255,255,.035)'; ctx.lineWidth = 6;
-  for (let k = 0; k < 6; k++) { const z = ((k * .45 - now * 1.4) % 2.7 + 2.7) % 2.7 - .3; ctx.beginPath(); ctx.moveTo(xOf(-.3, z), yOf(z)); ctx.quadraticCurveTo(xOf(0, z + .25), yOf(z + .25), xOf(.3, z), yOf(z)); ctx.stroke() }
-  ctx.restore();
-  for (const [u0, u1] of [[-.535, -.5], [.5, .535]]) { quad(u0, u1, -.32, ZTOP); const m = ctx.createLinearGradient(xOf(u0, 0), 0, xOf(u1, 0), 0); m.addColorStop(0, '#5b5f68'); m.addColorStop(.5, '#d6d9de'); m.addColorStop(1, '#4a4d55'); ctx.fillStyle = m; ctx.fill() }   // trilhos de metal
-  ctx.globalAlpha = .55; for (let i = 1; i < S.lanes.length; i++) { const u = -0.5 + i / S.lanes.length * .92 + .04; ctx.strokeStyle = '#3a3d44'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(xOf(u, 0), yOf(0)); ctx.lineTo(xOf(u, ZTOP), yOf(ZTOP)); ctx.stroke() } ctx.globalAlpha = 1;
-  // medidor de rock no trilho esquerdo e especial no direito
-  const segs = 10; for (let i = 0; i < segs; i++) {
-    const z0 = .1 + i * .11, z1 = z0 + .08, on = S.rock * segs > i, c = i < 3 ? '#e8323c' : i < 6 ? '#f2c21a' : '#3cc04a';
-    quad(-.56, -.53, z0, z1); ctx.fillStyle = on ? c : 'rgba(255,255,255,.08)'; ctx.fill();
-    quad(.53, .56, z0, z1); ctx.fillStyle = S.streak / 40 * segs > i ? '#4ff0ff' : 'rgba(255,255,255,.08)'; ctx.fill();
+  const now = songTime(), N = S.lanes.length;
+  ctx.drawImage(STAGE, 0, 0);
+  for (const x of [190, 450]) { const l = ctx.createRadialGradient(x, 0, 0, x, 0, 260); l.addColorStop(0, `rgba(255,220,160,${.14 + .05 * Math.sin(S.t * 3 + x)})`); l.addColorStop(1, 'rgba(255,220,160,0)'); ctx.fillStyle = l; ctx.fillRect(0, 0, W, H) }   // holofotes
+  // pista: a textura é desenhada linha a linha na perspectiva e rola junto com as notas
+  const top = Math.ceil(yOf(ZTOP)), scroll = now * SPEED * 140;
+  for (let y = top; y < H; y++) {
+    const z = zOfY(y + .5), x0 = xOf(-.5, z), w = BW * sOf(z), v = ((z * 140 + scroll) % 256 + 256) % 256;
+    ctx.drawImage(BOARD, 0, v, 256, 1, x0, y, w, 1.2);
   }
-  // linhas de compasso
-  ctx.strokeStyle = 'rgba(255,255,255,.18)'; ctx.lineWidth = 1;
-  for (const b of S.beats) { const z = (b - now) / LOOK * ZTOP; if (z < -.05 || z > ZTOP) continue; ctx.beginPath(); ctx.moveTo(xOf(-.5, z), yOf(z)); ctx.lineTo(xOf(.5, z), yOf(z)); ctx.stroke() }
-  ctx.strokeStyle = 'rgba(255,255,255,.55)'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(xOf(-.5, 0), yOf(0)); ctx.lineTo(xOf(.5, 0), yOf(0)); ctx.stroke();
-  // anéis
-  S.lanes.forEach(([c], i) => ring(xOf(laneU(i), 0), yOf(0), BW / S.lanes.length * .4, c, S.press[i] > 0));
+  quad(-.5, .5, -.12, ZTOP); ctx.fillStyle = 'rgba(0,0,0,.28)'; ctx.fill();   // escurece a textura: as notas se destacam
+  const fog = ctx.createLinearGradient(0, top, 0, top + 90); fog.addColorStop(0, 'rgba(0,0,0,.75)'); fog.addColorStop(1, 'rgba(0,0,0,0)');
+  quad(-.5, .5, -.12, ZTOP); ctx.fillStyle = fog; ctx.fill();
+  // trilhos de metal azulado nas bordas
+  for (const [u0, u1] of [[-.54, -.5], [.5, .54]]) {
+    quad(u0, u1, -.12, ZTOP); const m = ctx.createLinearGradient(xOf(u0, 0), 0, xOf(u1, 0), 0);
+    m.addColorStop(0, '#3a5560'); m.addColorStop(.45, '#cdeff6'); m.addColorStop(.6, '#7fb3c2'); m.addColorStop(1, '#2a3c44'); ctx.fillStyle = m; ctx.fill();
+  }
+  // trastes prateados a cada tempo
+  for (const b of S.beats) {
+    const z = (b - now) * SPEED; if (z < -.1 || z > ZTOP) continue; const y = yOf(z), t = Math.max(1, 3.2 * sOf(z));
+    const m = ctx.createLinearGradient(0, y - t, 0, y + t); m.addColorStop(0, '#7a7d84'); m.addColorStop(.5, '#f4f6f8'); m.addColorStop(1, '#5a5d64');
+    ctx.fillStyle = m; ctx.fillRect(xOf(-.52, z), y - t / 2, BW * 1.04 * sOf(z), t);
+  }
+  // cordas: fios escuros trançados de cada pista até o alvo
+  for (let i = 0; i < N; i++) {
+    const u = laneU(i);
+    for (let z = ZTOP; z > .06; z -= .06) { const z2 = Math.max(.06, z - .06), w = Math.max(1, 3 * sOf(z)); ctx.strokeStyle = ((z * 40 + now * SPEED * 40) | 0) % 2 ? '#1a1a1c' : '#4a4a50'; ctx.lineWidth = w; ctx.beginPath(); ctx.moveTo(xOf(u, z), yOf(z)); ctx.lineTo(xOf(u, z2), yOf(z2)); ctx.stroke() }
+    const x = xOf(u, .07), y = yOf(.07); ctx.fillStyle = '#16161a'; ctx.beginPath(); ctx.moveTo(x, y - 8); ctx.lineTo(x - 7, y + 4); ctx.lineTo(x + 7, y + 4); ctx.fill();   // ponteira da corda
+  }
+  // linha de batida e alvos
+  ctx.fillStyle = 'rgba(230,236,240,.8)'; ctx.fillRect(xOf(-.5, -.02), yOf(-.02), BW * sOf(-.02), 2);
+  for (let i = 0; i < N; i++) target(xOf(laneU(i), 0), yOf(0), BW / N * .42, S.lanes[i][0], S.press[i] > 0);
   // notas (de trás para a frente)
   for (let k = S.notes.length - 1; k >= 0; k--) {
-    const n = S.notes[k]; if (n.done) continue; const z = (n.t - now) / LOOK * ZTOP; if (z > ZTOP || z < -.3) continue;
-    if (n.lane < 0) { quad(-.47, .47, z - .025, z + .025); ctx.fillStyle = '#f08a1a'; ctx.fill(); quad(-.47, .47, z - .006, z + .006); ctx.fillStyle = '#ffd08a'; ctx.fill() }   // bumbo: barra laranja
-    else gem(xOf(laneU(n.lane), z), yOf(z), BW / S.lanes.length * .38 * sOf(z), S.lanes[n.lane][0], n.cym);
+    const n = S.notes[k]; if (n.done) continue; const z = (n.t - now) * SPEED; if (z > ZTOP || z < -.12) continue;
+    if (n.lane < 0) { quad(-.48, .48, z - .02, z + .02); ctx.fillStyle = '#f08a1a'; ctx.fill(); quad(-.48, .48, z - .005, z + .005); ctx.fillStyle = '#ffe0b0'; ctx.fill() }   // bumbo
+    else puck(xOf(laneU(n.lane), z), yOf(z), BW / N * .36 * sOf(z), S.lanes[n.lane][0], n.cym);
   }
   // chamas dos acertos
-  for (const f of S.fx) { const k = f.t / .28, x = xOf(laneU(f.lane), 0), y = yOf(0), s = BW / S.lanes.length * .45;
-    for (let j = 0; j < 3; j++) { const gg = ctx.createRadialGradient(x, y - s * (.6 + j * .25) * (1 + k), 1, x, y - s * .8, s * 1.1); gg.addColorStop(0, `rgba(255,240,170,${.9 * (1 - k)})`); gg.addColorStop(.5, `rgba(255,140,30,${.7 * (1 - k)})`); gg.addColorStop(1, 'rgba(255,80,0,0)');
-      ctx.fillStyle = gg; ctx.beginPath(); ctx.ellipse(x + rnd(-2, 2), y - s * (.7 + k * .6), s * (.75 - j * .15), s * (1.1 + k * .5), 0, 0, 7); ctx.fill() } }
+  for (const f of S.fx) flame(xOf(laneU(f.lane), 0), yOf(0), BW / N * .42, f.t / .32);
   hud(now);
 }
-function ring(x, y, r, c, lit) {   // anel colorido com aro prateado e centro escuro (aceso quando a tecla está apertada)
+function target(x, y, r, c, lit) {   // alvo: aro colorido, bisel prateado e centro escuro (acende quando a tecla está apertada)
+  ctx.save(); ctx.translate(x, y); ctx.scale(1, .36);
+  ctx.fillStyle = 'rgba(0,0,0,.5)'; ctx.beginPath(); ctx.arc(0, r * .35, r * 1.2, 0, 7); ctx.fill();
+  ctx.fillStyle = c; ctx.beginPath(); ctx.arc(0, 0, r * 1.15, 0, 7); ctx.fill();
+  const m = ctx.createLinearGradient(0, -r, 0, r); m.addColorStop(0, '#ffffff'); m.addColorStop(.5, '#b8bcc4'); m.addColorStop(1, '#6a6e76'); ctx.fillStyle = m; ctx.beginPath(); ctx.arc(0, 0, r * .98, 0, 7); ctx.fill();
+  ctx.fillStyle = lit ? c : '#2a2c30'; ctx.beginPath(); ctx.arc(0, 0, r * .74, 0, 7); ctx.fill();
+  ctx.fillStyle = lit ? 'rgba(255,255,255,.6)' : '#141518'; ctx.beginPath(); ctx.arc(0, -r * .1, r * .48, 0, 7); ctx.fill();
+  ctx.restore();
+}
+function puck(x, y, r, c, cym) {   // nota: botão colorido com borda branca e tampa branca brilhante
   ctx.save(); ctx.translate(x, y); ctx.scale(1, .42);
-  ctx.fillStyle = c; ctx.beginPath(); ctx.arc(0, 0, r * 1.18, 0, 7); ctx.fill();
-  const m = ctx.createLinearGradient(0, -r, 0, r); m.addColorStop(0, '#f4f6f8'); m.addColorStop(1, '#8a8f98'); ctx.fillStyle = m; ctx.beginPath(); ctx.arc(0, 0, r, 0, 7); ctx.fill();
-  ctx.fillStyle = lit ? c : '#1d1f24'; ctx.beginPath(); ctx.arc(0, 0, r * .72, 0, 7); ctx.fill();
-  if (lit) { ctx.fillStyle = 'rgba(255,255,255,.55)'; ctx.beginPath(); ctx.arc(0, -r * .2, r * .4, 0, 7); ctx.fill() }
+  ctx.fillStyle = 'rgba(0,0,0,.45)'; ctx.beginPath(); ctx.ellipse(0, r * .7, r * 1.1, r * .9, 0, 0, 7); ctx.fill();
+  const h = r * .55;   // altura do botão
+  ctx.fillStyle = '#d8dce2'; ctx.beginPath(); ctx.arc(0, h, r * 1.08, 0, 7); ctx.fill();   // borda de baixo
+  const side = ctx.createLinearGradient(-r, 0, r, 0); side.addColorStop(0, shade(c, -.35)); side.addColorStop(.5, c); side.addColorStop(1, shade(c, -.35));
+  ctx.fillStyle = side; ctx.fillRect(-r, 0, r * 2, h); ctx.beginPath(); ctx.arc(0, h, r, 0, Math.PI); ctx.fill();
+  ctx.fillStyle = cym ? '#ffe9a0' : c; ctx.beginPath(); ctx.arc(0, 0, r, 0, 7); ctx.fill();
+  ctx.fillStyle = '#f4f6f8'; ctx.beginPath(); ctx.arc(0, -r * .05, r * .62, 0, 7); ctx.fill();   // tampa branca
+  const g = ctx.createRadialGradient(-r * .2, -r * .3, 0, 0, 0, r * .62); g.addColorStop(0, '#ffffff'); g.addColorStop(1, 'rgba(200,205,215,.6)'); ctx.fillStyle = g; ctx.beginPath(); ctx.arc(0, -r * .05, r * .55, 0, 7); ctx.fill();
   ctx.restore();
 }
-function gem(x, y, r, c, cym) {
-  ctx.save(); ctx.translate(x, y); ctx.scale(1, .45);
-  if (cym) {   // prato: disco metálico com sulcos na cor da pista
-    ctx.fillStyle = '#7a6420'; ctx.beginPath(); ctx.arc(0, r * .25, r * 1.12, 0, 7); ctx.fill();
-    const m = ctx.createRadialGradient(0, -r * .3, 1, 0, 0, r * 1.1); m.addColorStop(0, '#fff6c8'); m.addColorStop(.5, c); m.addColorStop(1, '#5a4a10'); ctx.fillStyle = m; ctx.beginPath(); ctx.arc(0, 0, r * 1.1, 0, 7); ctx.fill();
-    ctx.strokeStyle = 'rgba(40,30,0,.55)'; ctx.lineWidth = 1.2; for (const k of [.45, .75]) { ctx.beginPath(); ctx.arc(0, 0, r * k, 0, 7); ctx.stroke() }
-    ctx.fillStyle = '#2a2208'; ctx.beginPath(); ctx.arc(0, -r * .1, r * .18, 0, 7); ctx.fill();
-  } else {
-    ctx.fillStyle = '#0a0a0c'; ctx.beginPath(); ctx.arc(0, r * .3, r * 1.05, 0, 7); ctx.fill();
-    ctx.fillStyle = c; ctx.beginPath(); ctx.arc(0, 0, r, 0, 7); ctx.fill();
-    ctx.fillStyle = '#f4f6f8'; ctx.beginPath(); ctx.arc(0, 0, r * .62, 0, 7); ctx.fill();
-    ctx.fillStyle = '#26282d'; ctx.beginPath(); ctx.arc(0, 0, r * .42, 0, 7); ctx.fill();
+function shade(hex, k) { const n = parseInt(hex.slice(1), 16), f = v => clamp(Math.round(v * (1 + k)), 0, 255); return `rgb(${f(n >> 16)},${f(n >> 8 & 255)},${f(n & 255)})` }
+function flame(x, y, r, k) {   // chama subindo do alvo
+  for (let j = 0; j < 4; j++) {
+    const a = 1 - k, w = r * (.9 - j * .18), hgt = r * (2.2 + j * .4) * (.6 + k), sx = x + Math.sin(S.t * 30 + j) * 2;
+    const g = ctx.createLinearGradient(0, y, 0, y - hgt); g.addColorStop(0, `rgba(255,250,200,${a})`); g.addColorStop(.35, `rgba(255,170,40,${a * .9})`); g.addColorStop(1, 'rgba(200,40,0,0)');
+    ctx.fillStyle = g; ctx.beginPath(); ctx.moveTo(sx - w, y); ctx.quadraticCurveTo(sx - w * .8, y - hgt * .6, sx + Math.sin(S.t * 20 + j) * w * .4, y - hgt); ctx.quadraticCurveTo(sx + w * .8, y - hgt * .6, sx + w, y); ctx.fill();
   }
-  ctx.restore();
 }
-function panel(x, y, w, h) { ctx.fillStyle = 'rgba(10,12,16,.85)'; ctx.beginPath(); ctx.roundRect(x, y, w, h, 4); ctx.fill(); ctx.strokeStyle = '#7d828c'; ctx.lineWidth = 1.5; ctx.stroke() }
 function hud(now) {
-  // multiplicador
-  const mx = xOf(.62, .75), my = yOf(.75); ctx.fillStyle = '#121418'; ctx.beginPath(); ctx.arc(mx, my, 17, 0, 7); ctx.fill();
-  ctx.strokeStyle = ['#9aa0aa', '#f2c21a', '#3cc04a', '#c04ae0'][S.mult - 1]; ctx.lineWidth = 3; ctx.stroke();
-  ctx.fillStyle = '#fff'; ctx.textAlign = 'center'; ctx.font = `800 9px ${FONT}`; ctx.fillText('x', mx - 7, my + 6); ctx.font = `800 20px ${FONT}`; ctx.fillText(S.mult, mx + 3, my + 7);
-  // pontos, estrelas e sequência
-  const px = 462, py = 196, stars = Math.min(5, Math.floor(S.score / Math.max(1, S.maxScore) * 6));
-  panel(px, py, 128, 10); ctx.fillStyle = '#5b8de8'; ctx.fillRect(px + 3, py + 3, 122 * clamp(now / S.len, 0, 1), 4);   // andamento da música
-  panel(px, py + 14, 128, 22); ctx.font = `700 15px ${FONT}`; ctx.fillStyle = '#e8eaee'; ctx.textAlign = 'right'; ctx.fillText(S.score.toLocaleString('en-US'), px + 120, py + 31);
-  panel(px, py + 40, 128, 8); ctx.fillStyle = '#f2c21a'; ctx.fillRect(px + 3, py + 42, 122 * (S.score / Math.max(1, S.maxScore) * 6 % 1), 4);   // até a próxima estrela
-  panel(px + 30, py + 52, 92, 20); ctx.fillStyle = '#ffb02e'; ctx.font = `800 14px ${FONT}`; ctx.fillText(S.streak, px + 114, py + 67);
-  star(px + 146, py + 26, 19, stars);
+  // painel de pontos e multiplicador (canto esquerdo), com luzes da sequência
+  const px = 22, py = 196;
+  ctx.fillStyle = '#0c0d10'; ctx.beginPath(); ctx.roundRect(px, py, 92, 104, 6); ctx.fill();
+  ctx.strokeStyle = '#8a7a50'; ctx.lineWidth = 3; ctx.setLineDash([3, 3]); ctx.stroke(); ctx.setLineDash([]);   // borda quadriculada
+  ctx.fillStyle = '#0a1a0c'; ctx.fillRect(px + 8, py + 8, 76, 22);
+  ctx.font = `800 18px ui-monospace, Consolas, monospace`; ctx.textAlign = 'right'; ctx.shadowColor = '#5cff7a'; ctx.shadowBlur = 8; ctx.fillStyle = '#9dff8a'; ctx.fillText(S.score, px + 80, py + 26); ctx.shadowBlur = 0;
+  const mx = px + 46, my = py + 66, ring = ctx.createLinearGradient(0, my - 26, 0, my + 26); ring.addColorStop(0, '#f2f4f6'); ring.addColorStop(1, '#6a6e76');
+  ctx.fillStyle = ring; ctx.beginPath(); ctx.arc(mx, my, 26, 0, 7); ctx.fill(); ctx.fillStyle = '#0e2a14'; ctx.beginPath(); ctx.arc(mx, my, 21, 0, 7); ctx.fill();
+  ctx.textAlign = 'center'; ctx.font = `800 30px ${FONT}`; ctx.shadowColor = '#5cff7a'; ctx.shadowBlur = 10; ctx.fillStyle = '#7dff6a'; ctx.fillText(S.mult, mx + 4, my + 11); ctx.shadowBlur = 0;
+  ctx.font = `900 16px ${FONT}`; ctx.fillStyle = '#e8eaee'; ctx.fillText('x', mx - 15, my + 6);
+  for (let i = 0; i < 5; i++) { const on = S.mult === 4 || (S.streak % 10) / 2 >= 5 - i; ctx.fillStyle = on ? '#6aff6a' : '#1a2a1c'; if (on) { ctx.shadowColor = '#6aff6a'; ctx.shadowBlur = 6 } ctx.beginPath(); ctx.roundRect(px - 12, py + 10 + i * 18, 8, 13, 3); ctx.fill(); ctx.shadowBlur = 0 }
+  // medidor de rock (canto direito): arco vermelho/amarelo/verde com ponteiro
+  const rx = 572, ry = 296;
+  ctx.fillStyle = '#0c0d10'; ctx.beginPath(); ctx.roundRect(rx - 46, ry - 44, 92, 56, 6); ctx.fill(); ctx.strokeStyle = '#8a7a50'; ctx.lineWidth = 2; ctx.stroke();
+  [['#e8323c', Math.PI, Math.PI * 1.33], ['#f2c21a', Math.PI * 1.33, Math.PI * 1.67], ['#3cc04a', Math.PI * 1.67, Math.PI * 2]].forEach(([c, a0, a1]) => { ctx.strokeStyle = c; ctx.lineWidth = 8; ctx.beginPath(); ctx.arc(rx, ry, 32, a0, a1); ctx.stroke() });
+  const na = Math.PI * (1 + clamp(S.rock, 0, 1)); ctx.strokeStyle = '#f4f6f8'; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(rx, ry); ctx.lineTo(rx + Math.cos(na) * 30, ry + Math.sin(na) * 30); ctx.stroke();
+  ctx.fillStyle = '#c8ccd4'; ctx.beginPath(); ctx.arc(rx, ry, 4, 0, 7); ctx.fill();
+  // o arquivo (inimigo) no palco, com a vida
+  const ex = 566, ey = 118; Batalha.draw(ctx, ex, ey + (S.ehit > 0 ? rnd(-3, 3) : 0), { kind: S.type, boss: S.boss, t: S.t, scale: .7, flash: S.ehit > 0 && Math.floor(S.t * 30) % 2 });
+  ctx.fillStyle = 'rgba(0,0,0,.7)'; ctx.fillRect(ex - 44, ey + 46, 88, 8); ctx.fillStyle = '#e8323c'; ctx.fillRect(ex - 42, ey + 48, 84 * clamp(S.ehp / S.emax, 0, 1), 4);
+  ctx.font = `700 10px ${FONT}`; ctx.fillStyle = '#f0e6dc'; ctx.fillText(S.fname, ex, ey + 68);
+  // nome da música, contagem e teclas
   ctx.textAlign = 'left';
-  // o arquivo (inimigo) com a vida dele
-  const ex = 560, ey = 92; Batalha.draw(ctx, ex, ey + (S.ehit > 0 ? rnd(-3, 3) : 0), { kind: S.type, boss: S.boss, t: S.t, scale: .75, flash: S.ehit > 0 && Math.floor(S.t * 30) % 2 });
-  panel(ex - 52, ey + 50, 104, 9); ctx.fillStyle = '#e8323c'; ctx.fillRect(ex - 49, ey + 53, 98 * clamp(S.ehp / S.emax, 0, 1), 3);
-  ctx.font = `600 10px ${FONT}`; ctx.fillStyle = '#e8eaee'; ctx.textAlign = 'center'; ctx.fillText(S.fname, ex, ey + 72); ctx.textAlign = 'left';
-  // nome da música no começo
-  if (now < 3.5 && S.title) { const a = clamp(Math.min(now + 2, 3.5 - now), 0, 1); ctx.globalAlpha = a; panel(16, 18, 250, 46); ctx.fillStyle = '#fff'; ctx.font = `800 15px ${FONT}`; ctx.fillText(S.title, 28, 38); ctx.font = `500 11px ${FONT}`; ctx.fillStyle = '#b8bcc6'; ctx.fillText(S.sub, 28, 54); ctx.globalAlpha = 1 }
-  if (now < 0) { ctx.font = `800 40px ${FONT}`; ctx.fillStyle = '#fff'; ctx.textAlign = 'center'; ctx.fillText(Math.ceil(-now), CX, 170); ctx.textAlign = 'left' }   // contagem
-  // dicas de teclas embaixo dos anéis
-  ctx.font = `700 10px ${FONT}`; ctx.fillStyle = 'rgba(255,255,255,.6)'; ctx.textAlign = 'center';
-  S.lanes.forEach(([, k], i) => ctx.fillText(k.toUpperCase(), xOf(laneU(i), 0), yOf(0) + 4)); if (S.drums) { ctx.font = `700 9px ${FONT}`; ctx.fillText('ESPAÇO = bumbo', CX, yOf(0) + 24) }   // letra da tecla no meio de cada anel
+  if (now < 3.5 && S.title) { const a = clamp(Math.min(now + 2, 3.5 - now), 0, 1); ctx.globalAlpha = a; ctx.fillStyle = 'rgba(10,8,6,.85)'; ctx.beginPath(); ctx.roundRect(16, 16, 240, 44, 5); ctx.fill(); ctx.fillStyle = '#fff'; ctx.font = `800 15px ${FONT}`; ctx.fillText(S.title, 28, 36); ctx.font = `500 11px ${FONT}`; ctx.fillStyle = '#d8c8b8'; ctx.fillText(S.sub, 28, 52); ctx.globalAlpha = 1 }
+  ctx.textAlign = 'center';
+  if (now < 0) { ctx.font = `900 46px ${FONT}`; ctx.fillStyle = '#fff'; ctx.shadowColor = '#000'; ctx.shadowBlur = 10; ctx.fillText(Math.ceil(-now), CX, 170); ctx.shadowBlur = 0 }
+  ctx.font = `800 10px ${FONT}`; ctx.fillStyle = 'rgba(255,255,255,.75)'; S.lanes.forEach(([, k], i) => ctx.fillText(k.toUpperCase(), xOf(laneU(i), 0), yOf(0) + 4));
+  if (S.drums) ctx.fillText('ESPAÇO = bumbo', CX, H - 6);
+  if (S.msg) { ctx.fillStyle = 'rgba(0,0,0,.65)'; ctx.fillRect(0, 0, W, H); ctx.fillStyle = '#fff'; ctx.font = `900 28px ${FONT}`; ctx.fillText(S.msg[0], W / 2, 150); ctx.font = `500 14px ${FONT}`; ctx.fillStyle = '#e0d8d0'; S.msg.slice(1).forEach((l, i) => ctx.fillText(l, W / 2, 182 + i * 22)) }
   ctx.textAlign = 'left';
-  if (S.msg) { ctx.fillStyle = 'rgba(0,0,0,.6)'; ctx.fillRect(0, 0, W, H); ctx.textAlign = 'center'; ctx.fillStyle = '#fff'; ctx.font = `800 26px ${FONT}`; ctx.fillText(S.msg[0], W / 2, 150); ctx.font = `500 14px ${FONT}`; ctx.fillStyle = '#d8dbe2'; S.msg.slice(1).forEach((l, i) => ctx.fillText(l, W / 2, 182 + i * 22)); ctx.textAlign = 'left' }
-}
-function star(x, y, r, n) {
-  ctx.beginPath(); for (let i = 0; i < 10; i++) { const a = -Math.PI / 2 + i * Math.PI / 5, rr = i % 2 ? r * .48 : r; ctx.lineTo(x + Math.cos(a) * rr, y + Math.sin(a) * rr) } ctx.closePath();
-  const g = ctx.createLinearGradient(0, y - r, 0, y + r); g.addColorStop(0, '#ffe680'); g.addColorStop(1, '#c48a10'); ctx.fillStyle = g; ctx.fill(); ctx.strokeStyle = '#5a3f05'; ctx.lineWidth = 2; ctx.stroke();
-  ctx.fillStyle = '#3a2802'; ctx.font = `800 14px ${FONT}`; ctx.textAlign = 'center'; ctx.fillText(n, x, y + 5);
 }
 
 /* ---------------- jogo ---------------- */
