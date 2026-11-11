@@ -4,7 +4,7 @@ Mostra o que está ocupando o seu disco, do maior para o menor, em árvore, e ap
 (pastas do sistema são bloqueadas e tudo vai para a Lixeira, a não ser que você peça "excluir de vez").
 
 Para deixar a faxina divertida, dá para **batalhar** contra o arquivo antes de apagá-lo:
-uma batalha de desvio, um duelo por turnos com o Clawd, uma batalha 3D em grupo e uma batalha psicodélica em primeira pessoa.
+uma batalha de desvio, um duelo por turnos com o Clawd, uma batalha 3D em grupo, uma batalha psicodélica em primeira pessoa e uma batalha de ritmo com músicas do Clone Hero.
 Arquivos de 1 GB ou mais viram chefão.
 
 ## Baixar
@@ -19,11 +19,22 @@ Precisa de:
 Na primeira vez o Windows pode mostrar "O Windows protegeu o computador", porque o programa não tem
 assinatura digital: clique em **Mais informações → Executar assim mesmo**.
 
+## Músicas da batalha de ritmo
+
+Cada música fica numa pasta em `assets/ritmo/` (do jeito do Clone Hero: `notes.chart` ou `notes.mid`, áudios `.ogg`/`.opus` e `song.ini`).
+Para um arquivo `.sng`, extraia com:
+
+```
+node tools/sng.js "musica.sng" "assets/ritmo/Nome da Música"
+```
+
+Teclas: bateria D F J K e Espaço (bumbo); guitarra D F J K L.
+
 ## Pastas
 
 - `src/` — código: o programa em C# e a interface (HTML + batalhas em JavaScript)
 - `assets/` — ícone do app, ícones dos botões e músicas das batalhas
-- `tools/` — script que gera o ícone
+- `tools/` — script que gera o ícone e o extrator de `.sng`
 
 ## Compilar
 

@@ -18,6 +18,7 @@
     <EmbeddedResource Include="src\batalha2.js" LogicalName="batalha2.js" />
     <EmbeddedResource Include="src\batalha3.js" LogicalName="batalha3.js" />
     <EmbeddedResource Include="src/batalha4.js" LogicalName="batalha4.js" />
+    <EmbeddedResource Include="src/batalha5.js" LogicalName="batalha5.js" />
     <EmbeddedResource Include="assets\musicas\desvio.mp3" LogicalName="musica" />
     <EmbeddedResource Include="assets\musicas\duelo-clawd.mp3" LogicalName="musica2" />
     <EmbeddedResource Include="assets\musicas\batalha-3d.mp3" LogicalName="musica3" />
@@ -27,6 +28,8 @@
     <!-- efeitos sonoros: assets/sons/x.mp3 vira o recurso "som-x" -->
     <EmbeddedResource Include="assets/sons/*.mp3" LogicalName="som-%(Filename)" />
     <EmbeddedResource Include="assets/fundos/*.webm" LogicalName="fundo-%(Filename)" />
+    <!-- músicas do Clone Hero para a batalha de ritmo: uma pasta por música -->
+    <EmbeddedResource Include="assets/ritmo/**/*.*" LogicalName="ritmo/%(RecursiveDir)%(Filename)%(Extension)" />
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="Microsoft.Web.WebView2" Version="1.0.4314.35" />

@@ -232,10 +232,17 @@ class MainForm : Form
             core.AddWebResourceRequestedFilter(Host + "*", CoreWebView2WebResourceContext.All);
             core.WebResourceRequested += (_, e) =>
             {
-                string name = new Uri(e.Request.Uri).AbsolutePath.TrimStart('/');
+                string name = Uri.UnescapeDataString(new Uri(e.Request.Uri).AbsolutePath.TrimStart('/'));
                 if (name == "") name = "index.html";
                 Stream body = null; string type = "text/html; charset=utf-8";
-                body = typeof(MainForm).Assembly.GetManifestResourceStream(name);   // só o que está embutido; nada do disco
+                var asm = typeof(MainForm).Assembly;
+                if (name == "ritmo-lista")   // arquivos das músicas da batalha de ritmo (assets/ritmo/<pasta>/...)
+                {
+                    var list = asm.GetManifestResourceNames().Where(n => n.StartsWith("ritmo/")).Select(n => n.Replace('\\', '/'));
+                    body = new MemoryStream(System.Text.Encoding.UTF8.GetBytes(string.Join("\n", list))); type = "text/plain; charset=utf-8";
+                }
+                else body = asm.GetManifestResourceStream(name)   // só o que está embutido; nada do disco
+                    ?? asm.GetManifestResourceStream(asm.GetManifestResourceNames().FirstOrDefault(n => n.Replace('\\', '/') == name) ?? "-");   // pastas das músicas vêm com "\" no nome
                 if (name.EndsWith(".js")) type = "text/javascript; charset=utf-8";
                 e.Response = body == null
                     ? core.Environment.CreateWebResourceResponse(null, 404, "Not Found", "")
