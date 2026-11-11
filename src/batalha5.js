@@ -180,6 +180,10 @@ function draw() {
   const now = songTime(), N = S.lanes.length;
   ctx.drawImage(STAGE, 0, 0);
   for (const x of [190, 450]) { const l = ctx.createRadialGradient(x, 0, 0, x, 0, 260); l.addColorStop(0, `rgba(255,220,160,${.14 + .05 * Math.sin(S.t * 3 + x)})`); l.addColorStop(1, 'rgba(255,220,160,0)'); ctx.fillStyle = l; ctx.fillRect(0, 0, W, H) }   // holofotes
+  // a pista sobe do pé da tela na entrada e dá um tranco quando o multiplicador cai
+  const rise = H * Math.pow(1 - clamp(S.t / 1.1, 0, 1), 3), k = S.jolt ? S.jolt.t / .05 : 9;
+  const jolt = S.jolt && k < 5 ? S.jolt.p * [1, -.7, .4, -.3, .2, 0].reduce((v, w, i, a) => i === Math.floor(k) ? w + (a[i + 1] - w) * (k - i) : v, 0) : 0;
+  ctx.save(); ctx.translate(S.jolt && k < 5 ? S.jolt.x : 0, rise + jolt);
   // pista: a textura é desenhada linha a linha na perspectiva e rola junto com as notas
   const top = Math.ceil(yOf(ZTOP)), scroll = now * SPEED * 140;
   for (let y = top; y < H; y++) {
@@ -224,6 +228,8 @@ function draw() {
   }
   // chamas dos acertos
   for (const f of S.fx) flame(xOf(laneU(f.lane), 0), yOf(0), BW / N * .42, f.t / .32);
+  ctx.font = `800 10px ${FONT}`; ctx.fillStyle = 'rgba(255,255,255,.75)'; ctx.textAlign = 'center'; S.lanes.forEach(([, k], i) => ctx.fillText(k.toUpperCase(), xOf(laneU(i), 0), yOf(0) + 4)); ctx.textAlign = 'left';   // letras das teclas sobem e tremem junto com a pista
+  ctx.restore();
   hud(now);
 }
 function target(x, y, r, c, lit) {   // alvo: aro colorido, bisel prateado e centro escuro (acende quando a tecla está apertada)
@@ -290,7 +296,6 @@ function hud(now) {
   if (now < 3.5 && S.title) { const a = clamp(Math.min(now + 2, 3.5 - now), 0, 1); ctx.globalAlpha = a; ctx.fillStyle = 'rgba(10,8,6,.85)'; ctx.beginPath(); ctx.roundRect(16, 16, 240, 44, 5); ctx.fill(); ctx.fillStyle = '#fff'; ctx.font = `800 15px ${FONT}`; ctx.fillText(S.title, 28, 36); ctx.font = `500 11px ${FONT}`; ctx.fillStyle = '#d8c8b8'; ctx.fillText(S.sub, 28, 52); ctx.globalAlpha = 1 }
   ctx.textAlign = 'center';
   if (now < 0) { ctx.font = `900 46px ${FONT}`; ctx.fillStyle = '#fff'; ctx.shadowColor = '#000'; ctx.shadowBlur = 10; ctx.fillText(Math.ceil(-now), CX, 170); ctx.shadowBlur = 0 }
-  ctx.font = `800 10px ${FONT}`; ctx.fillStyle = 'rgba(255,255,255,.75)'; S.lanes.forEach(([, k], i) => ctx.fillText(k.toUpperCase(), xOf(laneU(i), 0), yOf(0) + 4));
   ctx.shadowColor = '#000'; ctx.shadowBlur = 4; ctx.fillText(S.drums ? 'ESPAÇO = bumbo' : 'SHIFT: Star Power', CX, H - 6); ctx.shadowBlur = 0;
   // barra de Star Power (4 partes) em cima do painel de pontos
   for (let i = 0; i < 4; i++) { const f = clamp(S.sp * 4 - i, 0, 1); ctx.fillStyle = '#0c0d10'; ctx.fillRect(22 + i * 23, 180, 21, 10); ctx.fillStyle = S.spOn ? '#9ae8ff' : '#3aa8ff'; ctx.fillRect(23 + i * 23, 181, 19 * f, 8) }
@@ -312,7 +317,11 @@ function scoreHit(lanes, n) {
   if (n && n.sp >= 0 && S.spLast[n.sp] === n && !S.spBroken.has(n.sp)) { S.sp = Math.min(1, S.sp + .25); S.spFlash = .6; [880, 1175, 1568].forEach((f, i) => setTimeout(() => tone(f, .1, 'triangle', .05), i * 60)) }   // completou um trecho de Star Power
   if (S.ehp <= 0 && !S.end) finish(true);
 }
-function breakStreak(rock = 0) { S.streak = 0; S.mult = 1; S.rock -= rock }
+function breakStreak(rock = 0) {
+  const p = S.spOn ? 7.5 : { 2: 1.5, 3: 2, 4: 5 }[S.mult];   // força do tranco: maior quanto mais alto o multiplicador perdido
+  if (p) S.jolt = { p, t: 0, x: rnd(-1.5, 1.5) };
+  S.streak = 0; S.mult = 1; S.rock -= rock;
+}
 function hitDrum(lane) {
   const now = songTime(); let best = null;
   for (const n of S.notes) { if (n.done || n.lane !== lane) continue; const dt = n.t - now; if (dt > WIN) break; if (Math.abs(dt) <= WIN && (!best || Math.abs(dt) < Math.abs(best.t - now))) best = n }
@@ -343,7 +352,7 @@ function missed(n) {
 function beatLen(now) { const b = S.beats; let i = S.bi || 0; while (i < b.length - 2 && b[i + 1] < now) i++; S.bi = i; return Math.max(.2, (b[i + 1] - b[i]) || .5) }
 function frame() {
   if (!S) return;
-  const now = performance.now(), dt = Math.min(.05, (now - (S.last || now)) / 1000); S.last = now; S.t += dt; S.ehit = Math.max(0, S.ehit - dt); S.spFlash = Math.max(0, S.spFlash - dt);
+  const now = performance.now(), dt = Math.min(.05, (now - (S.last || now)) / 1000); S.last = now; S.t += dt; S.ehit = Math.max(0, S.ehit - dt); S.spFlash = Math.max(0, S.spFlash - dt); if (S.jolt) S.jolt.t += dt;
   for (const k in S.press) S.press[k] = Math.max(0, S.press[k] - dt);
   S.fx.forEach(f => f.t += dt); S.fx = S.fx.filter(f => f.t < .32);
   const st = songTime();
