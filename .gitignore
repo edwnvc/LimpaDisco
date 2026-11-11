@@ -1,0 +1,5 @@
+# gerados ao compilar
+bin/
+obj/
+app/
+*.pdb

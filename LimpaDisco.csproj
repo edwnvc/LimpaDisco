@@ -1,0 +1,28 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <UseWindowsForms>true</UseWindowsForms>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <Nullable>disable</Nullable>
+    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
+    <SelfContained>false</SelfContained>
+    <PublishSingleFile>true</PublishSingleFile>
+    <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
+    <ApplicationIcon>icone.ico</ApplicationIcon>
+  </PropertyGroup>
+  <ItemGroup>
+    <EmbeddedResource Include="index.html" LogicalName="index.html" />
+    <EmbeddedResource Include="batalha.js" LogicalName="batalha.js" />
+    <EmbeddedResource Include="batalha2.js" LogicalName="batalha2.js" />
+    <EmbeddedResource Include="musica.mp3" LogicalName="musica" />
+    <EmbeddedResource Include="musica2.mp3" LogicalName="musica2" />
+    <EmbeddedResource Include="musica3.mp3" LogicalName="musica3" />
+    <EmbeddedResource Include="musica4.mp3" LogicalName="musica4" />
+    <EmbeddedResource Include="musica5.mp3" LogicalName="musica5" />
+    <EmbeddedResource Include="batalha3.js" LogicalName="batalha3.js" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Web.WebView2" Version="1.0.4314.35" />
+  </ItemGroup>
+</Project>

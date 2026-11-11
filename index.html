@@ -1,0 +1,687 @@
+<!doctype html>
+<html lang="pt-BR" data-theme="laranja">
+<head>
+<meta charset="utf-8">
+<title>LimpaDisco</title>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&family=Pixelify+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#0e0e10; --panel:#151517; --panel2:#1c1c1f; --hover:#202023; --line:#28282c; --line2:#36363b;
+  --text:#ededf0; --muted:#9a9aa3; --dim:#66666e; --danger:#ff3d6e; --on-accent:#2b1203;
+  --accent:#ff7a1a; --accent2:#ffb02e;
+}
+[data-theme=brasa]  {--accent:#ff4d1c; --accent2:#ff8f3c}
+[data-theme=ambar]  {--accent:#ffa20f; --accent2:#ffd25e}
+[data-theme=pessego]{--accent:#ff8c66; --accent2:#ffc29e}
+:root{
+  --grad:linear-gradient(90deg,var(--accent),var(--accent2));
+  --tint:color-mix(in srgb,var(--accent) 11%,transparent);
+  --tint2:color-mix(in srgb,var(--accent) 35%,transparent);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;background:var(--bg);color:var(--text);overflow:hidden;user-select:none;-webkit-font-smoothing:antialiased;
+  font:14px/1.45 'Manrope',system-ui,sans-serif}
+button{font:inherit;color:inherit;background:none;border:0;cursor:pointer}
+.mono{font-family:'JetBrains Mono',ui-monospace,monospace;font-variant-numeric:tabular-nums}
+svg{width:18px;height:18px;flex:none;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+::-webkit-scrollbar{width:12px}::-webkit-scrollbar-thumb{background:#2a2a2e;border-radius:9px;border:3px solid var(--bg)}::-webkit-scrollbar-thumb:hover{background:#3a3a40}
+
+#app{display:grid;grid-template-columns:272px 1fr;height:100%}
+
+/* ---------- barra lateral ---------- */
+aside{background:var(--panel);border-right:1px solid var(--line);display:flex;flex-direction:column;padding:22px 14px 16px;min-height:0}
+.brand{display:flex;align-items:center;gap:11px;font-weight:800;font-size:18px;letter-spacing:-.02em;padding:0 8px 22px}
+.logo{width:32px;height:32px;border-radius:10px;background:var(--grad);display:grid;place-items:center;color:var(--on-accent);box-shadow:0 6px 22px var(--tint2)}
+.logo svg{width:18px;height:18px;stroke-width:2.4}
+.label{font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--dim);padding:4px 10px 8px}
+#drives{display:flex;flex-direction:column;gap:4px;overflow:auto;min-height:0}
+.drive{display:block;text-align:left;width:100%;padding:12px;border-radius:12px;border:1px solid transparent;transition:background .15s,border-color .15s}
+.drive:hover{background:var(--panel2);border-color:var(--line)}
+.drive.active{background:var(--panel2);border-color:var(--line2)}
+.drive .top{display:flex;align-items:center;gap:10px}
+.drive .ic{width:34px;height:34px;border-radius:9px;background:#222226;display:grid;place-items:center;color:var(--accent2);transition:.15s}
+.drive.active .ic{background:var(--tint);color:var(--accent)}
+.drive b{display:block;font-weight:700;font-size:14px}
+.drive small{display:block;color:var(--muted);font-size:12px}
+.meter{height:6px;border-radius:9px;background:#26262a;overflow:hidden;margin:11px 0 0}
+.meter i{display:block;height:100%;border-radius:inherit}
+.pick{margin-top:10px;display:flex;align-items:center;gap:10px;width:100%;padding:12px;border-radius:12px;border:1px dashed var(--line2);color:var(--muted);font-weight:600;transition:.15s}
+.pick:hover{color:var(--text);border-color:var(--accent);background:var(--panel2)}
+.themes{display:flex;gap:10px;padding:2px 10px 18px}
+.sw{width:26px;height:26px;border-radius:50%;box-shadow:inset 0 0 0 2px rgba(0,0,0,.25);transition:transform .15s;position:relative}
+.sw:hover{transform:scale(1.12)}
+.sw.on::after{content:'';position:absolute;inset:-4px;border-radius:50%;border:2px solid var(--text)}
+.keys{margin-top:auto;padding:14px 10px 0;border-top:1px solid var(--line);display:grid;grid-template-columns:auto 1fr;gap:7px 10px;font-size:12px;color:var(--muted)}
+kbd{font:500 11px 'JetBrains Mono',monospace;background:#222226;border:1px solid var(--line2);border-bottom-width:2px;border-radius:6px;padding:1px 6px;color:var(--text);justify-self:start}
+
+/* ---------- área principal ---------- */
+main{position:relative;display:flex;flex-direction:column;min-width:0;min-height:0}
+.screen{display:none;flex:1;min-height:0}
+.screen.on{display:flex}
+.center{flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:14px;padding:40px}
+.center h2{font-size:24px;font-weight:800;letter-spacing:-.02em}
+.center p{color:var(--muted);max-width:420px}
+.hero{width:84px;height:84px;border-radius:24px;background:radial-gradient(circle at 30% 20%,var(--tint2),transparent 62%),#1a1a1d;border:1px solid var(--line2);display:grid;place-items:center;color:var(--accent);margin-bottom:6px}
+.hero svg{width:38px;height:38px;stroke-width:1.5}
+.ring{width:92px;height:92px;border-radius:50%;background:conic-gradient(from 0deg,transparent 0 25%,var(--accent),var(--accent2));animation:spin 1s linear infinite;
+  -webkit-mask:radial-gradient(farthest-side,transparent calc(100% - 7px),#000 calc(100% - 6px));margin-bottom:10px}
+@keyframes spin{to{transform:rotate(360deg)}}
+.count{font-size:44px;font-weight:600;letter-spacing:-.03em}
+.scanpath{color:var(--muted);font-size:13px;max-width:70%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+#browser{flex-direction:column}
+header{padding:24px 30px 18px;display:flex;align-items:flex-end;gap:24px;border-bottom:1px solid var(--line)}
+.titles{min-width:0;flex:1}
+.kicker{font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--accent)}
+h1{font-size:28px;font-weight:800;letter-spacing:-.03em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:2px}
+.total{text-align:right;flex:none}
+.total b{display:block;font-size:30px;font-weight:600;letter-spacing:-.03em;line-height:1.1}
+.total small{color:var(--muted);font-size:12.5px}
+.status{padding:9px 30px;font-size:12px;color:var(--muted);border-bottom:1px solid var(--line);display:flex;align-items:center;gap:8px}
+.status .dot{width:6px;height:6px;border-radius:50%;background:var(--accent);flex:none}
+.status .grow{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.link{color:var(--muted);font-weight:600;font-size:12px;padding:3px 8px;border-radius:7px}
+.link:hover{color:var(--text);background:var(--panel2)}
+
+.cols,.row{display:grid;grid-template-columns:minmax(0,1fr) 170px 92px 62px 84px 132px;align-items:center;gap:14px;padding:0 14px}
+.cols{padding-top:12px;padding-bottom:8px;margin:0 16px;font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--dim)}
+.cols .r{text-align:right}
+#list{flex:1;overflow:auto;padding:0 16px 110px;position:relative}
+.marquee{position:absolute;border:1px solid var(--accent);background:var(--tint);border-radius:6px;pointer-events:none;z-index:5}
+.row{height:40px;border-radius:10px;cursor:pointer;transition:background .12s;content-visibility:auto;contain-intrinsic-size:auto 40px}  /* linhas fora da tela não são desenhadas */
+.row:hover{background:var(--hover)}
+.row.sel{background:var(--tint);box-shadow:inset 0 0 0 1px var(--tint2)}
+.row.cur{box-shadow:inset 0 0 0 1px var(--line2)}
+.row.sel.cur{box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--accent) 60%,transparent)}
+.namecell{display:flex;align-items:center;gap:8px;min-width:0;padding-left:calc(var(--d) * 22px)}
+.chev{width:24px;height:24px;margin:0 -3px;border-radius:7px;display:grid;place-items:center;color:var(--dim);flex:none;transition:transform .22s cubic-bezier(.2,.8,.2,1),color .15s,background .15s}
+.chev:has(svg):hover{background:var(--line2)}
+.chev svg{width:14px;height:14px;stroke-width:2.4}
+.row:hover .chev{color:var(--text)}
+.row.open .chev{transform:rotate(90deg);color:var(--accent)}
+.row.loading .chev{animation:spin .7s linear infinite}
+.ico{display:grid;color:var(--accent2)}
+.ico.file{color:var(--muted)}
+.ico.link{color:var(--dim)}
+.name{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:600}
+.row[data-kind=file] .name{font-weight:500;color:#d4d4da}
+.tag{font-size:10.5px;font-weight:700;color:var(--muted);border:1px solid var(--line2);border-radius:6px;padding:0 5px;margin-left:8px}
+.bar{height:8px;border-radius:9px;background:#242428;overflow:hidden}
+.bar i{display:block;height:100%;border-radius:inherit;min-width:2px;transform-origin:left}
+.row.a .bar i{animation:grow .5s cubic-bezier(.2,.8,.2,1) both}
+@keyframes grow{from{transform:scaleX(0)}}
+.num{text-align:right;color:var(--muted);font-size:12.5px;white-space:nowrap}
+.num.size{color:var(--text);font-weight:600}
+.acts{display:flex;gap:2px;justify-content:flex-end;opacity:0;transition:opacity .1s}
+.row:hover .acts,.row.sel .acts{opacity:1}
+.ib{width:30px;height:30px;display:grid;place-items:center;border-radius:8px;color:var(--muted)}
+.ib svg{width:16px;height:16px}
+.ib:hover{background:#2a2a2e;color:var(--text)}
+.ib.del:hover{color:var(--danger);background:color-mix(in srgb,var(--danger) 13%,transparent)}
+.more{padding:8px 14px 8px calc(var(--d) * 22px + 40px);color:var(--dim);font-size:12.5px}
+
+/* expandir/recolher: a altura anima de 0 até o conteúdo */
+.kids{display:grid;grid-template-rows:0fr;transition:grid-template-rows .26s cubic-bezier(.2,.8,.2,1)}
+.kids.open{grid-template-rows:1fr}
+.kids>div{min-height:0;overflow:hidden;position:relative}
+.kids>div::before{content:'';position:absolute;left:calc(var(--d) * 22px + 22px);top:0;bottom:10px;width:1px;background:var(--line)}
+.kids.instant{transition:none}
+.row.a{animation:slide .3s cubic-bezier(.2,.8,.2,1) both;animation-delay:calc(var(--i) * 14ms)}  /* só as 20 primeiras linhas animam */
+@keyframes slide{from{opacity:0;transform:translateX(-8px)}}
+
+/* ---------- barra de seleção ---------- */
+#selbar{position:absolute;left:50%;bottom:24px;transform:translate(-50%,20px);opacity:0;pointer-events:none;transition:.2s;
+  display:flex;align-items:center;gap:16px;padding:10px 10px 10px 20px;border-radius:16px;background:rgba(28,28,31,.92);backdrop-filter:blur(12px);
+  border:1px solid var(--line2);box-shadow:0 20px 50px rgba(0,0,0,.45);white-space:nowrap}
+#selbar.on{opacity:1;transform:translate(-50%,0);pointer-events:auto}
+#selbar .info b{font-weight:700}
+#selbar .info span{color:var(--muted)}
+.btn{display:inline-flex;align-items:center;gap:8px;padding:10px 16px;border-radius:11px;font-weight:700;font-size:13px;border:1px solid var(--line2);background:var(--panel2);transition:.15s}
+.btn:hover{background:#26262a;border-color:#46464d}
+.btn svg{width:16px;height:16px}
+.btn img{width:18px;height:18px;image-rendering:auto}
+.btn img.dr{image-rendering:pixelated;filter:drop-shadow(0 0 1px rgba(255,255,255,.85))}   /* coração preto: contorno claro para aparecer no botão preto */
+.btn.primary{background:var(--grad);color:var(--on-accent);border-color:transparent}
+.btn.primary:hover{filter:brightness(1.08)}
+.btn.danger{background:var(--danger);color:#2b0310;border-color:transparent}
+.btn.danger:hover{filter:brightness(1.08)}
+.btn.ghost-danger{color:var(--danger);border-color:color-mix(in srgb,var(--danger) 40%,transparent);background:transparent}
+.btn.ghost-danger:hover{background:color-mix(in srgb,var(--danger) 10%,transparent)}
+.btn:disabled{opacity:.35;pointer-events:none}
+.btn.battle{padding:10px 11px;gap:6px}
+#selbar{width:max-content;max-width:calc(100% - 32px);flex-wrap:wrap;justify-content:center;gap:10px}   /* janela estreita: os botões descem para uma segunda linha em vez de sumir */
+.btn.battle{background:#000;color:var(--accent2);border-color:var(--accent);font-family:'Pixelify Sans',monospace;letter-spacing:.04em}
+.btn.battle:hover{background:var(--tint);box-shadow:0 0 18px var(--tint2)}
+
+/* ---------- modais e avisos ---------- */
+#back{position:fixed;inset:0;background:rgba(6,6,8,.62);backdrop-filter:blur(6px);display:none;place-items:center;z-index:10}
+#back.on{display:grid;animation:fade .15s}
+@keyframes fade{from{opacity:0}}
+.modal{width:min(580px,92vw);background:var(--panel);border:1px solid var(--line2);border-radius:20px;padding:26px;box-shadow:0 30px 90px rgba(0,0,0,.55);animation:pop .18s}
+@keyframes pop{from{transform:scale(.96);opacity:0}}
+.mhead{display:flex;gap:14px;align-items:flex-start;margin-bottom:18px}
+.badge{width:44px;height:44px;border-radius:13px;display:grid;place-items:center;flex:none;background:var(--tint);color:var(--accent)}
+.badge.red{background:color-mix(in srgb,var(--danger) 14%,transparent);color:var(--danger)}
+.badge svg{width:22px;height:22px}
+.modal h3{font-size:18px;font-weight:800;letter-spacing:-.01em}
+.modal p{color:var(--muted);font-size:13.5px;margin-top:3px}
+.paths{max-height:210px;overflow:auto;background:var(--bg);border:1px solid var(--line);border-radius:12px;padding:10px 14px;font-size:12px;color:#c4c4cc;word-break:break-all;user-select:text}
+.paths div{padding:3px 0}
+.paths .m{color:var(--dim)}
+.sum{display:flex;justify-content:space-between;align-items:center;margin:16px 2px 4px;font-size:13px;color:var(--muted)}
+.sum b{color:var(--text);font-size:20px;font-weight:600}
+.check{display:flex;gap:10px;align-items:center;margin-top:14px;padding:12px 14px;border-radius:12px;background:color-mix(in srgb,var(--danger) 7%,transparent);border:1px solid color-mix(in srgb,var(--danger) 28%,transparent);font-size:13px;cursor:pointer}
+.check input{accent-color:var(--danger);width:16px;height:16px}
+.mfoot{display:flex;justify-content:flex-end;gap:10px;margin-top:22px}
+.spin{width:22px;height:22px;border-radius:50%;border:2.5px solid #36363b;border-top-color:var(--accent);animation:spin .8s linear infinite}
+
+/* ---------- vassourinha (exclusão) ---------- */
+.sweep{display:flex;flex-direction:column;align-items:center;gap:10px;padding:6px 0 2px}
+.sweep svg{width:170px;height:130px;overflow:visible}
+.sweep .broom{transform-origin:92px 8px;animation:swish .9s ease-in-out infinite alternate}
+@keyframes swish{from{transform:translateX(-14px) rotate(-16deg)}to{transform:translateX(14px) rotate(14deg)}}
+.sweep .dust{fill:#c8c8d0;opacity:0;transform-box:fill-box;transform-origin:center;animation:puff 1.8s ease-out infinite}
+.sweep .dust:nth-of-type(2){animation-delay:.45s}.sweep .dust:nth-of-type(3){animation-delay:.9s}.sweep .dust:nth-of-type(4){animation-delay:1.35s}
+@keyframes puff{0%{opacity:.75;transform:translate(0,0) scale(.3)}100%{opacity:0;transform:translate(-34px,-16px) scale(1.6)}}
+.sweep .spark{fill:var(--accent2);transform-box:fill-box;transform-origin:center;animation:twinkle 1.2s ease-in-out infinite}
+.sweep .spark:nth-of-type(2){animation-delay:.4s}.sweep .spark:nth-of-type(3){animation-delay:.8s}
+@keyframes twinkle{0%,100%{opacity:0;transform:scale(.2) rotate(0)}50%{opacity:1;transform:scale(1) rotate(45deg)}}
+.sweep h3{margin-top:4px}
+.row.swept{animation:swept .55s cubic-bezier(.5,0,.75,0) forwards!important;pointer-events:none}
+@keyframes swept{to{opacity:0;transform:translateX(140px) skewX(-12deg);filter:blur(2px)}}
+@media (prefers-reduced-motion:reduce){*{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}}
+
+#tip{position:fixed;left:0;top:0;z-index:30;max-width:340px;padding:7px 11px;border-radius:9px;background:#232327;border:1px solid var(--line2);
+  border-top-color:color-mix(in srgb,var(--accent) 55%,transparent);color:var(--text);font-size:12px;font-weight:600;line-height:1.35;word-break:break-word;
+  box-shadow:0 10px 30px rgba(0,0,0,.45);pointer-events:none;opacity:0;transform:translateY(3px);transition:opacity .12s,transform .12s}
+#tip.on{opacity:1;transform:none}
+
+#toast{position:fixed;right:24px;bottom:24px;display:flex;align-items:center;gap:10px;padding:12px 18px;border-radius:14px;background:#1e1e21;border:1px solid var(--line2);
+  box-shadow:0 16px 40px rgba(0,0,0,.4);font-weight:600;transform:translateY(20px);opacity:0;transition:.2s;pointer-events:none;z-index:200}  /* acima da batalha */
+#toast.on{transform:none;opacity:1}
+#toast svg{color:var(--accent)}
+#toast.err svg{color:var(--danger)}
+</style>
+</head>
+<body>
+<div id="app">
+  <aside>
+    <div class="brand"><div class="logo"><svg viewBox="0 0 24 24"><path d="M3 12h4l3-8 4 16 3-8h4"/></svg></div>LimpaDisco</div>
+    <div class="label">Discos</div>
+    <div id="drives"></div>
+    <button class="pick" id="pick"><svg viewBox="0 0 24 24"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="M12 11v5M9.5 13.5h5"/></svg>Escolher uma pasta…</button>
+    <div class="keys">
+      <div class="label" style="grid-column:1/-1;padding:0 0 4px">Cor</div>
+      <div class="themes" id="themes" style="grid-column:1/-1;padding:0 0 10px"></div>
+      <kbd>›</kbd><span>abre/fecha a pasta</span>
+      <kbd>Clique</kbd><span>seleciona</span>
+      <kbd>← →</kbd><span>fechar / abrir</span>
+      <kbd>Del</kbd><span>mover para a Lixeira</span>
+      <kbd>Shift+Del</kbd><span>excluir de vez</span>
+      <kbd>Arrastar</kbd><span>selecionar uma área</span>
+      <kbd>Ctrl</kbd><span>somar à seleção</span>
+      <kbd>B</kbd><span>batalhar contra a seleção</span>
+    </div>
+  </aside>
+
+  <main>
+    <section class="screen center on" id="empty">
+      <div class="hero"><svg viewBox="0 0 24 24"><path d="M22 12H2M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/><path d="M6 16h.01M10 16h.01"/></svg></div>
+      <h2>Descubra o que está ocupando seu disco</h2>
+      <p>Escolha um disco à esquerda. Tudo é listado do maior para o menor, e nada é apagado sem você confirmar.</p>
+    </section>
+
+    <section class="screen center" id="scanning">
+      <div class="ring"></div>
+      <div class="count mono" id="scount">0</div>
+      <p>arquivos lidos · <span class="mono" id="stime">0,0 s</span></p>
+      <div class="scanpath mono" id="spath"></div>
+      <button class="btn" id="stop" style="margin-top:10px"><svg viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="2"/></svg>Parar</button>
+    </section>
+
+    <section class="screen" id="browser">
+      <header>
+        <div class="titles"><div class="kicker">Analisando</div><h1 id="title"></h1></div>
+        <div class="total"><b class="mono" id="tsize"></b><small id="tfiles"></small></div>
+      </header>
+      <div class="status"><span class="dot"></span><span class="grow" id="status"></span><button class="link" id="collapse">Recolher tudo</button></div>
+      <div class="cols"><span>Nome</span><span>Proporção</span><span class="r">Tamanho</span><span class="r">%</span><span class="r">Arquivos</span><span></span></div>
+      <div id="list"></div>
+    </section>
+
+    <div id="selbar">
+      <div class="info"><b id="selcount"></b> <span id="selsize"></span></div>
+      <button class="btn" id="emptyBtn" data-tip="Apaga o que tem dentro e mantém a pasta"><svg viewBox="0 0 24 24"><path d="M20 3l-7.5 7.5"/><path d="M12.5 10.5c-3.5-1-7 1-8.5 5l4.5 4.5c4-1.5 6-5 5-8.5z"/><path d="M6.5 17.5l3-3M9 19.5l2-2.5"/></svg>Esvaziar</button>
+      <button class="btn primary" id="recycle"><svg viewBox="0 0 24 24"><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/></svg>Mover para a Lixeira</button>
+      <button class="btn ghost-danger" id="nuke">Excluir de vez</button>
+      <button class="btn battle" id="battleBtn" data-tip="Vença o arquivo numa batalha sorteada e ele vai para a Lixeira (B)"><svg viewBox="0 0 24 24"><path d="M14.5 17.5 3 6V3h3l11.5 11.5"/><path d="m13 19 6-6M16 16l4 4M19 21l2-2"/></svg>Batalhar</button>
+      <button class="btn battle" id="battle1" data-tip="Batalha de desvio"><img class="dr" alt="" src="data:image/png;base64,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">Batalhar</button>
+      <button class="btn battle" id="battle2" data-tip="Duelo do Clawd (Shift+B)"><img alt="" src="data:image/png;base64,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">Batalhar</button>
+      <button class="btn battle" id="battle3" data-tip="Batalha 3D em grupo"><img alt="" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAEAAAABACAYAAACqaXHeAAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAAJcEhZcwAADsMAAA7DAcdvqGQAABAXSURBVHhe5dsHVFTXvgbw3PuSe2/y7npJFBgIMRpN9BpzY2KKxkKbQhtgYOidkV6GGQQZ6ijSpIgUCQiJoiYGS1DskogISslIG4ZenKEOAlJEijDfW2iS5z2JsSTPAPmtNWuxzv7++6y153DOPmefee65eai7Mva/h2/sZhK3/ybf5NUuJG6brYY74+Qma5jtsr54ZWLbU9M/0J9gePCWI3H7bHS3LUgNvR9gss7Ki9j21DZk3j66at/d8cTvpMuIbbPNZLX2ObQrY6KafIXY9tQ+SR85QtoPrNs7KsqpaHuF2D5bTNR5WaFhJXB9AaYq/j01duvAm8TMU/kgbayIlAIopwDrUsavSqXSfxIzf7SxOr7alHD1KCpJQJki0LQUE43WDsTcE5NIJC++kzLeRUoElGJkWLIbUE8YKczPr5g1R8IdUbD11PWNY6hUAkqVgDJloEEJ49Xkr4jZJ8Y+OfDeW6nTICUAyrEyKIfL8GYksCFqvIp3uHc5Mf8sDXXULpy+6pGKUnWgeBlkxYuAstfuD4BQHpMVHzUCeJ5Y90R0s0Y4r2cAirsA5ZhpvB4xhcUhwJuhwKdBk/1uSV1GxJr/b1Lgn+Nnw7hTpx3EKNAE8t6DrGAFcG8AFO9/BCRMVbwzPSiJf4tY/0Q+TBsvU9gDKMbL8FrMNBaFT+PNEGCp/xTe4gAfcwB9/zt7srNrFhBrf28d32Qt78/aHjl60LMNxx2BY7qYzlHB1IU1mC5YAdm1NyArVbr/KSMBDW/jTpOzGbGfx+aYM7Bp5vBX2CWDUjx+GIApLAmZwlK/SSz3nMQKx2l86ASoscba7XwGPYC2fxD7eVoA/nI0LGXVpe2x7mVR2y42xflPjmdwMb7XHhMZZhj7Uhdjxzdh7Mz7mMxfgbtFizBVrITpEiXISpSAxjcwLjJOJvb72NbuvVOmlAwoxk1CKW4Kr0VPQjlsDIsDx7Bkyyjedh/FStYIVlmNYLXZFDZaANoWw03WjoP8AH7/u8T+Hlc0J2VVplfmwf2eu2uPcXeihL8Twh1BEEV4oS3GCdJEGwynmWJovw4Gv96AoROrMXJhOUYvK2O8SBET1xQxWawEVCthrEKlmNj/Y9HJGty5OA1QjJ2CYswESDtHoRQxjNdCb2GR/y0s5gzgLZdbWG53E++Y92K1UR/W6A9grd4o1A2noanXKzMwkIjMma3H3Gylh4I5TauI+3iYXa4Zjke4OTjkkYyvPcOR6xOIAh4X34e6oTaCBXGcFaRJTEjTNdF3YB1un3wPA6eXYeCiMobzFXG7QBF3ikiQlSpg8voHEyOyHhJxH79K/6tB/tJ0QCHuLhR3jkExcgSkiH4o8XugFNAJZW4HFnOHsMx5AMusxFhpLMa/GRK8T5fgY20J1mlKoELpBJnSAx1qP6wMALbDDWvifh4mxuGzz/c6f4F0pxgcctuGEz6ByPPnoDDQCQK+NRqjTDGQYoRb++lo26852p5rckV8at3N7tMK6DmvgL6LJAxdIuHOFRJk5a9jUsg4RNzHQ6lnDOUszgTk42QgxYyBFDUEUpgUCiFikHjNIG1pxCKfTqgENJxb71mb/659M1aadOAd3Ra8p9mANdQ6rKU2YpNGI1TUakFRq4MhtRtOpg2ZxH39kgTvzBWxdvtGd9ul4DNWNLJcQpHD4eGyPwffb/NE2TZ7CKJs20V73L4UH91q1ynIfWOmrv4E9XLvaRIkpxXQfU4BvRdJGPhWEXcKXsWdkjUg7uehKPuHExelz0x6JkCKHgUpvA8KoRLI8Woh71MFOZ8mvOdX2yuTZb84k2ftEKlQnGsy1xpXd39s0I73yfX4WEOETeQWqKo1gKwqguYmISx1W4YyMlp+9VAUCAQvRNhllcbaHECsTQL2sKLuHQFfsf17T/pycy/wfXxKk8M/6gReItbWfqNe1HGShNaTJLSfIaHrHAn9F+UBwRL0CSy8ifmHAvh/XZs2fF0xCVCM/OHbD2yFnG8F5NgCLN7aAr1wgT2xLk/Q8rKDT63FRv2a22vUG7BeXQQ19UbQ1JugrVYPU+pNuJjU5hLrHrTD/tjhKMsc7DD/DHE2CdjrHIvPPbY1fxkXJ0fMEgmPalS0HiOhOUce4lMkdJ6Vg6z0dfRc0zpPzD5S2MWulSv3jN2R2zkO0rZOyPPqsYBTCnluBdb4Xz5KzD+IaS8IX6/dhbUqlVBVF0FLQwIDajeMNG7AVqsfHmaNaYDJfxHr+KwzmRHm3yKYmYUIi3Qk2CXjC48E7OVsNyBmia7neNlUH1w1UZVFQt1ReYhPKmD0igKkVzbWDA4+5fzEOOumzdLkaciFdkBuqxAL2EWQY5fhU96lDGL2QQBeoBtX5qnQpNikWgeaejMMqB0woXTCnNwOJ93bYDM7Snd4iWk/5J8Ptb+avc20GEGMbxDM3I9w8zTsdcnEHrfoR568ms4FqVVmrr9blvoGSjKVUH5wIbrOyqHju3W1N+u+eo2YfyLUVHGycuwY5LaKsJBTggVuhVjsIwRzZxmLmH2Q5JrkRaaZMEdTWwqKWiv0KWKYUrthTumENaULrpq3wdXvgy+ztpBndr00xKgWW/XzEGR0AttMDiHe9iASWMmtifzE/yH2/aDy41GrRRmatyo/W4GrexajeK88mr5RRE3uxqs1pUcUifknBuCv6xPavlUIk2IhtwxyXsVY6FaOFd4VY66JlR8Q80QOdjWh+jriKQPqIEzIPbCi9cJ25opA7YEbrQMcnQ740ZvhSy9GAOMSgpknEGFxDPF2+ybi2HEfEvt7UE12/FsNqczO+pS1ECSthPBzZQgPv43KE5S0Rpns78T8U8vJb3vl/XCRcAGvEXKeVyHvdg0k1xq871Hamv5l/iNPTn5+1R9Zm7RcttYZgSW1//4A0KRwo0ngoVkPb+0K+OoVg8f4DqHMU4i0PoZtjgkWxH4e1HZ6n2Jzkl2TJImGhuRPID70AYSHVVuFZ9nmxOzvIupwxZJ3w+q6Fm5thLxrEUisIig7VGKtZ/G1zs7On12SfskWp2ZdFqOzx542AGfaTbhSJXCn1f4wAFfB07+MKOtLiHQ+xCfWPig/J+cVYZyTcDjVFD0ZdDTv0+xsybUJEosHXyVmf1eco3Ufvbu9dkSB2wD5zaWQsy7Amw6tUGcL82SPcch5s1pYtvTuAXta371/gf8bgHL46pZih/n3iHTJiSLWPag0JUaxMmZLdUeSM9pSN5d0HOS6V7Q9wwcz7IySDzdsrzrwL3ZR6zKnYix1aMDb9t1Yb3mlzJx98hcnOW6sJoaV4Y1yK51hGKu3wZrcDnvyDWymNMKVUgmulhDBxgLscLroS6wlykvYoVa7JzSg4XjSamLbMwXgby5JwtV6gQJ7Fc+qpI8ti4uNNhedDuR/+8lMezo/9yVL6+vOunr1JQY6/dCj9sFQ/QZMyS2w0pD8NADuFBH8mNXtUeyi33ch448QlSp+NWhHwaKZv+P55xeYWVQe1dbtA5UshbZGIwzJEpiSJbAii8GitMOZcgO++u2I8C575k+Unhk/bq2qMaOuykCzD4bkdphTOmBL6cZmSg9cae3w05Mi0Kp8F7FuXhEIcl9iWbTst9IdhRml+95lcDNVCheaGN6aYvgxKzsaG88+8iQ653nZi+NY+uOwIUvBonTCmXYDHtQGBBrdQDT7eztiHnjuL8Rts1Z6uuCF/CM1j1wsYds2JjrpjMBeowNOlDa4UmvA0aqGv3FR+4HYCwo/5uK5n6vGeifNnXODV+LZvzv4VSSZezT/7Jsk8jBuzXWk3cJmjUY4UyrhQrl6bx4QYHq+nu90gh3mcCA+wiZjJM4z6V/E2lnNzLthpbqVBNq2Xfuyskofupyemlr4qruBpMud1gdXWi3caCXwoObBV+878E0vIN72PLZZffbk9/CzAYNV7bPRDKCZdotd2S0Pvbbz3YRGXvQeOJNFcKPODMBFeGmdxBb614gwP45Ip0x3Ys2cMHPi0jCuLV+rcxdUg0HY2HZknj1b8ou3tJ5G5d+6UZvgQi4EWzMf3tqn4Kd3DHyzr5DE/fyPnen9Fizv65+q6XfgU3I3aNojMGWK63y8ytYTc5HeorUe2lVwUi8AW6sAW+gXEMw4g2CTg9KUlJRHnlBnNX2zquyNmjexUbUGVI1uGGg1TDmaX//ZGxuejNJ8T5oQbK3L8KFfAJ95EXyL7HJibs7h8auXaujUTWxUrYOGSgVoqrVgUlux2bgqUwDnF37MBWwuNOLSa+ClWQCOzjnwjfOwzerIpf/sbY5iWtQkkGk90FARgqZaBV2VGljQeuFk1FyYFl6gNJPJz2/7hxe9oJOjWQwO/QyCjc4h1OLwRWJfc1JcnEBOU0c0pK7aDKpqBfTUamCo3gAb2gA8DG+0RPgI7l3nfU2vJPvRK+CtcwaBjFPgmR64TOxrzrI0r47WpvWCpiYCXVUEhqoIFuRmuGnfgZterSzErVw1mluyzo9RBq7OeQQY5CLAJKt5Zm2C2NecFBvbrEDXbhjRVBdDT60OxhoSOBo1FG6xFLn6mbWmBLNKEgUCwctsvYsSjlYe/PVPIMTs8N0U/oHf9lLDbGJuLEw20BqGgXobmBpiWGqVC4kZf7P8Q4GGpeAxTiPa+hyinb545NOhOYPHq1xuoNV0V19dDCP1FthqiRHiKdzwYCbEquRwMPM6Ag3PIczsBKJs9venbjnw083RnGfCqDjDoPTAWKMN9lqDYFvUR/7Ylp197UU/o2tdPIMSBBmeR4TZKUTZHpJm8LOfbklrNvJyrtQy0e6GKaUDdrQhuDHEFT+2xfkI1wcaibBV/yqCjfKwy/YSYt2zPf+zhzkOyH/egt7SbE4bhC21H6506dTusOa3Z9q2O9TwQo07wDMsRphpESJtTklz03Mfa61hTnG2bNtuS5+GHW0AXgZAIKvLdWZ7iGXzuWDDdgQYliHWpgIxLudjiLXzQiSvZbmd/uC0HW0EHnTAx6z36Mzdo79JW08Qow0hzCpE25TIMsIuryTWzhuuZv2FLnqAuw7ANRppzoho3sAz6kQwow0RFi3YySp9uje65gqeW78zmwl46MjA1R+biHLvOR3I6EeIoRhxtl3Y5VXiQayZVzJ2t5A8jcdHPekAR+8ugkzuIoAxAD6zG5HW9XcPJxQvIdbMO1zrkdMcxswATMNPbxyBhrcQbjqIaPtGATE7L4W5DVn7mgDedMBPfxyBjAHstLyDONfGnyZH89rpLwdf5RhPDnH1fhyAQURZDSAtoJ5MzM5bfta3j/ob3h+AIMNRhFlIbuXkPMN1/j9amPst4wCTmQGYBJ85hQhrSSExM68dOdLysq/JxIC/PhBuCux07EokZua9ELvR/SFMYIc5EOvR9tt/3DTX7PbpofJNgVCTMaTyxL/6Sty8JBCkvxBoPiwJNhnA8bTv7z0l/tMJse+LC7G4OYqaI38jtv0p7OLc/GiHY/ufYwb4S2Yef6fyWxyPHMHP3h5/Fv4XMVTK2EvHl5oAAAAASUVORK5CYII=">Batalhar</button>
+    </div>
+  </main>
+</div>
+
+<div id="back"><div class="modal" id="modal"></div></div>
+<div id="toast"><svg viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></svg><span></span></div>
+
+<script src="batalha.js"></script>
+<script src="batalha2.js"></script>
+<script src="batalha3.js"></script>
+<script>
+const $ = s => document.querySelector(s);
+const post = m => window.chrome.webview.postMessage(m);
+const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const num = n => n.toLocaleString('pt-BR');
+function fmt(b){
+  const u=['B','KB','MB','GB','TB']; let i=0;
+  while(b>=1024 && i<u.length-1){ b/=1024; i++ }
+  return (i===0 ? b : b.toLocaleString('pt-BR',{minimumFractionDigits:1,maximumFractionDigits:b<10?2:1})) + ' ' + u[i];
+}
+// Vassourinha original (desenho próprio): cabo, amarração, palha, poeira e brilhos.
+let sweptAt = 0, quiet = false;   // quiet: exclusão que veio de uma batalha
+const BROOM = `<svg viewBox="0 0 170 130">
+  <ellipse cx="78" cy="122" rx="62" ry="5" fill="#000" opacity=".35"/>
+  <circle class="dust" cx="52" cy="112" r="7"/><circle class="dust" cx="44" cy="114" r="5"/><circle class="dust" cx="60" cy="116" r="6"/><circle class="dust" cx="38" cy="110" r="4"/>
+  <path class="spark" d="M128 40l3 8 8 3-8 3-3 8-3-8-8-3 8-3z"/><path class="spark" d="M24 52l2 5 5 2-5 2-2 5-2-5-5-2 5-2z"/><path class="spark" d="M140 86l2 4 4 2-4 2-2 4-2-4-4-2 4-2z"/>
+  <g class="broom">
+    <line x1="92" y1="8" x2="76" y2="82" stroke="#b9773f" stroke-width="6" stroke-linecap="round"/>
+    <line x1="91" y1="12" x2="80" y2="62" stroke="#e0a066" stroke-width="2" stroke-linecap="round" opacity=".7"/>
+    <path d="M60 84 Q78 74 96 86 L104 120 Q78 126 50 118 Z" fill="#f2b84b"/>
+    <path d="M66 90 L60 118 M74 88 L71 121 M82 88 L83 122 M90 90 L95 120" stroke="#c98a24" stroke-width="2" stroke-linecap="round"/>
+    <path d="M62 82 Q78 72 94 84 L95 90 Q78 80 61 88 Z" fill="var(--accent)"/>
+  </g>
+</svg>`;
+
+// 0% verde → 50% amarelo → 100% vermelho
+const heat = pct => `hsl(${120 - 1.2 * Math.min(100, Math.max(0, pct))} 80% 52%)`;
+const ICON = {
+  dir:'<svg viewBox="0 0 24 24"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>',
+  file:'<svg viewBox="0 0 24 24"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/></svg>',
+  link:'<svg viewBox="0 0 24 24"><path d="M10 14a4 4 0 0 0 5.66 0l3-3a4 4 0 0 0-5.66-5.66l-1 1"/><path d="M14 10a4 4 0 0 0-5.66 0l-3 3a4 4 0 0 0 5.66 5.66l1-1"/></svg>',
+  drive:'<svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="3"/><path d="M7 15h.01M11 15h6"/></svg>',
+  chev:'<svg viewBox="0 0 24 24"><path d="m9 6 6 6-6 6"/></svg>',
+  ext:'<svg viewBox="0 0 24 24"><path d="M14 4h6v6M20 4l-9 9M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"/></svg>',
+  copy:'<svg viewBox="0 0 24 24"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a1 1 0 0 1 1-1h10"/></svg>',
+  trash:'<svg viewBox="0 0 24 24"><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/></svg>',
+  empty:'<svg viewBox="0 0 24 24"><path d="M20 3l-7.5 7.5"/><path d="M12.5 10.5c-3.5-1-7 1-8.5 5l4.5 4.5c4-1.5 6-5 5-8.5z"/><path d="M6.5 17.5l3-3M9 19.5l2-2.5"/></svg>',
+  warn:'<svg viewBox="0 0 24 24"><path d="M12 3 2 20h20z"/><path d="M12 10v4M12 17h.01"/></svg>',
+  shield:'<svg viewBox="0 0 24 24"><path d="M12 3 4 6v6c0 5 3.5 8 8 9 4.5-1 8-4 8-9V6z"/><path d="m9.5 9.5 5 5M14.5 9.5l-5 5"/></svg>',
+};
+
+/* ---------- paletas ---------- */
+const THEME_NAMES = {laranja:'Laranja', brasa:'Brasa', ambar:'Âmbar', pessego:'Pêssego'};
+const THEMES = {laranja:['#ff7a1a','#ffb02e'], brasa:['#ff4d1c','#ff8f3c'], ambar:['#ffa20f','#ffd25e'], pessego:['#ff8c66','#ffc29e']};
+function setTheme(name, save){
+  if (!THEMES[name]) return;
+  document.documentElement.dataset.theme = name;
+  $('#themes').innerHTML = Object.entries(THEMES).map(([k, [a, b]]) =>
+    `<button class="sw ${k === name ? 'on' : ''}" data-t="${k}" data-tip="${THEME_NAMES[k]}" style="background:linear-gradient(135deg,${a},${b})"></button>`).join('');
+  if (save) post({cmd:'theme', name});
+}
+$('#themes').addEventListener('click', e => { const b = e.target.closest('.sw'); if (b) setTheme(b.dataset.t, true) });
+setTheme('laranja');
+
+/* ---------- estado da árvore ---------- */
+let rootId = 0, kids = new Map(), info = new Map(), parentOf = new Map(), expanded = new Set(), pending = new Set();
+let sel = new Set(), cur = 0, anchor = 0, busy = false, activeDrive = null, rebuild = false;
+
+function screen(id){ document.querySelectorAll('.screen').forEach(s => s.classList.toggle('on', s.id === id)) }
+
+window.chrome.webview.addEventListener('message', e => {
+  const m = e.data;
+  if (m.type === 'drives') renderDrives(m.drives);
+  else if (m.type === 'theme') setTheme(m.name);
+  else if (m.type === 'progress') { busy = true; screen('scanning'); $('#scount').textContent = num(m.files); $('#stime').textContent = m.secs.toLocaleString('pt-BR',{minimumFractionDigits:1,maximumFractionDigits:1}) + ' s'; $('#spath').textContent = m.path; }
+  else if (m.type === 'root') onRoot(m);
+  else if (m.type === 'kids') onKids(m.map);
+  else if (m.type === 'confirm') { confirmModal(m, pendingBattle); pendingBattle = false }
+  else if (m.type === 'blocked') { pendingBattle = false; blockedModal(m) }
+  else if (m.type === 'busy') {
+    busy = m.on;
+    if (m.on && quiet) {}   // apagou vencendo uma batalha: sem vassoura
+    else if (m.on) { sweptAt = Date.now(); modal(`<div class="sweep">${BROOM}<h3>${esc(m.text)}</h3></div>`) }
+    else setTimeout(() => { if ($('#modal .sweep')) closeModal() }, Math.max(0, 1400 - (Date.now() - sweptAt)));   // deixa a vassoura aparecer mesmo quando a exclusão é instantânea
+  }
+  else if (m.type === 'shot') window.onShot && window.onShot(m.data);   // foto da tela para o vidro quebrando da batalha 3D
+  else if (m.type === 'toast') (pendingBattle = quiet = false), toast(m.freed > 0 ? fmt(m.freed) + ' liberados' : m.text, m.error);
+});
+
+function onRoot(m){
+  busy = false;
+  if (!m.refresh) { expanded.clear(); cur = anchor = 0 }
+  rootId = m.id; kids.clear(); pending.clear(); sel.clear(); rebuild = true;
+  screen('browser');
+  $('#title').textContent = m.path;
+  $('#tsize').textContent = fmt(m.size);
+  $('#tfiles').textContent = num(m.files) + ' arquivos';
+  $('#status').textContent = m.status;
+  post({cmd:'kids', ids:[rootId, ...expanded]});
+}
+
+function onKids(map){
+  for (const [k, v] of Object.entries(map)) {
+    const id = +k; kids.set(id, v);
+    for (const it of v.items) { info.set(it.id, it); parentOf.set(it.id, id) }
+  }
+  if (rebuild) {   // árvore inteira (scan novo ou depois de excluir)
+    rebuild = false;
+    for (const id of expanded) if (!kids.has(id)) expanded.delete(id);
+    $('#list').innerHTML = level(rootId, 0);
+    paint();
+    return;
+  }
+  for (const k of Object.keys(map)) if (pending.delete(+k)) fill(+k);
+}
+
+function level(pid, depth){
+  const k = kids.get(pid);
+  if (!k) return '';
+  const max = k.size || 1;
+  return k.items.map((it, i) => node(it, depth, max, i)).join('')
+    + (k.moreCount ? `<div class="more" style="--d:${depth}">+ ${num(k.moreCount)} itens menores somando ${fmt(k.moreSize)}</div>` : '')
+    + (!k.items.length ? `<div class="more" style="--d:${depth}">vazia</div>` : '');
+}
+
+function node(it, depth, max, i){
+  const pct = it.size / max * 100, open = expanded.has(it.id) && kids.has(it.id), canOpen = it.kind === 'dir' && !it.empty;
+  return `<div class="node" data-id="${it.id}" style="--i:${Math.min(i, 20)}">
+    <div class="row ${open ? 'open' : ''} ${i < 20 ? 'a' : ''}" data-id="${it.id}" data-kind="${it.kind}">
+      <span class="namecell" style="--d:${depth}">
+        <span class="chev">${canOpen ? ICON.chev : ''}</span>
+        <span class="ico ${it.kind}">${ICON[it.kind]}</span>
+        <span class="name" data-tip="${esc(it.name)}">${esc(it.name)}${it.kind === 'link' ? '<span class="tag">ATALHO</span>' : ''}</span>
+      </span>
+      <div class="bar"><i style="width:${pct}%;background:${heat(pct)}"></i></div>
+      <span class="num size mono">${fmt(it.size)}</span>
+      <span class="num mono" style="color:${heat(pct)}">${pct > 0 && pct < 0.1 ? '&lt;0,1' : pct.toLocaleString('pt-BR',{maximumFractionDigits:1})}%</span>
+      <span class="num mono">${it.kind === 'file' ? '' : num(it.files)}</span>
+      <span class="acts">
+        <button class="ib" data-act="explorer" data-tip="Mostrar no Explorer">${ICON.ext}</button>
+        <button class="ib" data-act="copy" data-tip="Copiar caminho">${ICON.copy}</button>
+        ${canOpen ? `<button class="ib" data-act="empty" data-tip="Esvaziar pasta (apaga o que tem dentro, mantém a pasta)">${ICON.empty}</button>` : ''}
+        <button class="ib del" data-act="del" data-tip="Mover para a Lixeira">${ICON.trash}</button>
+      </span>
+    </div>
+    ${canOpen ? `<div class="kids ${open ? 'open' : ''}" style="--d:${depth}"><div>${open ? level(it.id, depth + 1) : ''}</div></div>` : ''}
+  </div>`;
+}
+
+const rowOf = id => document.querySelector(`.row[data-id="${id}"]`);
+const boxOf = id => document.querySelector(`.node[data-id="${id}"] > .kids`);
+
+function toggle(id, want){
+  const it = info.get(id);
+  if (!it || it.kind !== 'dir' || it.empty) return;
+  const open = want ?? !expanded.has(id);
+  if (open === expanded.has(id)) return;
+  const row = rowOf(id);
+  if (open) {
+    expanded.add(id); row.classList.add('open');
+    if (kids.has(id)) fill(id); else { pending.add(id); row.classList.add('loading'); post({cmd:'kids', ids:[id]}) }
+  } else {
+    expanded.delete(id); row.classList.remove('open');
+    boxOf(id).classList.remove('open');
+  }
+}
+
+function fill(id){
+  const row = rowOf(id), box = boxOf(id);
+  if (!row || !box || !expanded.has(id)) return;
+  row.classList.remove('loading');
+  box.classList.toggle('instant', kids.get(id).items.length > 60);   // animar a altura de centenas de linhas trava
+  box.firstElementChild.innerHTML = level(id, +box.style.getPropertyValue('--d') + 1);
+  paint();
+  requestAnimationFrame(() => requestAnimationFrame(() => box.classList.add('open')));
+}
+
+/* ---------- seleção ---------- */
+const visible = () => [...document.querySelectorAll('#list .row')].filter(r => !r.closest('.kids:not(.open)'));
+function covered(id){ for (let p = parentOf.get(id); p; p = parentOf.get(p)) if (sel.has(p)) return true; return false }
+
+function paint(){
+  document.querySelectorAll('#list .row').forEach(r => {
+    const id = +r.dataset.id;
+    r.classList.toggle('sel', sel.has(id));
+    r.classList.toggle('cur', id === cur);
+  });
+  const ids = [...sel].filter(id => !covered(id));
+  $('#selbar').classList.toggle('on', ids.length > 0);
+  if (ids.length) {
+    $('#emptyBtn').style.display = ids.every(id => info.get(id).kind === 'dir' && !info.get(id).empty) ? '' : 'none';
+    $('#selcount').textContent = ids.length === 1 ? '1 item' : ids.length + ' itens';
+    $('#selsize').textContent = '· ' + fmt(ids.reduce((a, id) => a + info.get(id).size, 0));
+  }
+}
+
+function select(id, e = {}){
+  if (e.shiftKey && anchor) {
+    const ids = visible().map(r => +r.dataset.id), a = ids.indexOf(anchor), b = ids.indexOf(id);
+    if (!e.ctrlKey) sel.clear();
+    if (a >= 0 && b >= 0) for (let k = Math.min(a, b); k <= Math.max(a, b); k++) sel.add(ids[k]);
+  } else if (e.ctrlKey) { sel.has(id) ? sel.delete(id) : sel.add(id); anchor = id }
+  else { sel = new Set([id]); anchor = id }
+  cur = id; paint();
+}
+
+function ask(permanent, empty = false){ if (sel.size && !busy) post({cmd:'ask', ids:[...sel], permanent, empty}) }
+
+/* ---------- batalha: passa pelas mesmas travas de segurança ('ask'); vencer = mandar para a Lixeira ---------- */
+let pendingBattle = false, pick = null;   // pick: null = sorteia, 0 = desvio, 1 = duelo do Clawd, 2 = 3D
+function askBattle(){ if (sel.size && !busy) { pendingBattle = true; post({cmd:'ask', ids:[...sel], permanent:false}) } }
+function battle(m){
+  const first = info.get(m.ids[0]), base = m.paths[0].split('\\').filter(Boolean).pop() || m.paths[0];
+  const name = m.count === 1 && m.ids.length === 1 ? (base.length > 22 ? base.slice(0, 21) + '…' : base) : `${num(m.count)} itens`;
+  const row = rowOf(m.ids[0]);
+  const which = pick ?? Math.floor(Math.random() * 3); pick = null;
+  const go = B => B.start(
+    {name, file: base, kind: first && first.kind === 'dir' ? 'dir' : 'file', total: m.total, count: m.count},   // file: nome inteiro, para saber a extensão
+    row ? row.getBoundingClientRect() : null,
+    won => {
+      if (!won) return toast('O arquivo continua no disco');
+      document.querySelectorAll('#list .row.sel').forEach(r => r.classList.add('swept'));
+      quiet = true;
+      post({cmd:'delete', ids:m.ids, permanent:false});
+    });
+  if (which !== 2 || !go(Batalha3)) go(which === 1 ? Batalha2 : Batalha);   // computador sem 3D: cai na batalha de desvio
+}
+
+/* ---------- eventos ---------- */
+function renderDrives(list){
+  $('#drives').innerHTML = list.map(d => {
+    const used = d.total - d.free, pct = d.total ? used / d.total * 100 : 0;
+    return `<button class="drive ${d.path === activeDrive ? 'active' : ''}" data-path="${esc(d.path)}">
+      <div class="top"><div class="ic">${ICON.drive}</div><div><b>${esc(d.label)} <span class="mono" style="color:var(--muted);font-weight:500">${esc(d.path.replace('\\',''))}</span></b>
+      <small><span class="mono">${fmt(d.free)}</span> livres de <span class="mono">${fmt(d.total)}</span></small></div></div>
+      <div class="meter"><i style="width:${pct}%;background:${heat(pct)}"></i></div></button>`;
+  }).join('');
+}
+$('#drives').addEventListener('click', e => {
+  const b = e.target.closest('.drive'); if (!b || busy) return;
+  activeDrive = b.dataset.path;
+  document.querySelectorAll('.drive').forEach(d => d.classList.toggle('active', d === b));
+  post({cmd:'scan', path:activeDrive});
+});
+$('#pick').onclick = () => { if (!busy) { activeDrive = null; post({cmd:'pick'}) } };
+$('#stop').onclick = () => post({cmd:'cancel'});
+$('#recycle').onclick = () => ask(false);
+$('#nuke').onclick = () => ask(true);
+$('#emptyBtn').onclick = () => ask(false, true);
+$('#battleBtn').onclick = () => { pick = null; askBattle() };
+$('#battle1').onclick = () => { pick = 0; askBattle() };
+$('#battle2').onclick = () => { pick = 1; askBattle() };
+$('#battle3').onclick = () => { pick = 2; askBattle() };
+$('#collapse').onclick = () => { expanded.clear(); document.querySelectorAll('#list .kids.open').forEach(k => k.classList.remove('open')); document.querySelectorAll('#list .row.open').forEach(r => r.classList.remove('open')) };
+
+/* ---------- dicas (tooltip) no estilo do app, no lugar da bolha padrão do Windows ---------- */
+const tip = Object.assign(document.createElement('div'), {id:'tip'});
+document.body.appendChild(tip);
+let tipEl = null, tipTimer;
+const hideTip = () => { clearTimeout(tipTimer); tipEl = null; tip.classList.remove('on') };
+document.addEventListener('mouseover', e => {
+  const el = e.target.closest('[data-tip]');
+  if (el === tipEl) return;
+  hideTip(); tipEl = el;
+  if (!el || drag?.on) return;
+  if (el.classList.contains('name') && el.scrollWidth <= el.clientWidth) return;   // nome só mostra dica quando está cortado
+  tipTimer = setTimeout(() => {
+    tip.textContent = el.dataset.tip;
+    const b = el.getBoundingClientRect(), w = tip.offsetWidth, h = tip.offsetHeight;
+    const x = Math.max(8, Math.min(innerWidth - w - 8, b.left + b.width / 2 - w / 2));
+    const y = b.top - h - 8 < 8 ? b.bottom + 8 : b.top - h - 8;
+    tip.style.left = x + 'px'; tip.style.top = y + 'px';
+    tip.classList.add('on');
+  }, 300);
+});
+document.addEventListener('mousedown', hideTip);
+document.addEventListener('scroll', hideTip, true);
+document.addEventListener('keydown', hideTip);
+
+/* ---------- arrastar para selecionar uma área (Ctrl mantém a seleção anterior) ---------- */
+let drag = null, justDragged = false;
+$('#list').addEventListener('mousedown', e => {
+  if (e.button !== 0 || busy || e.target.closest('.chev,[data-act]')) return;
+  const L = $('#list'), r = L.getBoundingClientRect();
+  drag = { x: e.clientX - r.left, y: e.clientY - r.top + L.scrollTop, sx: e.clientX, sy: e.clientY, cx: e.clientX, cy: e.clientY,
+           base: e.ctrlKey ? new Set(sel) : new Set(), on: false, box: null };
+});
+addEventListener('mousemove', e => {
+  if (!drag) return;
+  drag.cx = e.clientX; drag.cy = e.clientY;
+  if (!drag.on) {
+    if (Math.hypot(e.clientX - drag.sx, e.clientY - drag.sy) < 6) return;   // movimento pequeno = clique normal
+    drag.on = true;
+    drag.box = Object.assign(document.createElement('div'), {className:'marquee'});
+    $('#list').appendChild(drag.box);
+    requestAnimationFrame(autoScroll);
+  }
+  marquee();
+});
+addEventListener('mouseup', () => {
+  if (!drag) return;
+  if (drag.on) { drag.box.remove(); justDragged = true; setTimeout(() => justDragged = false) }   // ignora o clique que vem logo após soltar
+  drag = null;
+});
+function marquee(){
+  const L = $('#list'), r = L.getBoundingClientRect();
+  const x2 = Math.max(0, Math.min(L.clientWidth, drag.cx - r.left)), y2 = drag.cy - r.top + L.scrollTop;
+  const top = Math.min(drag.y, y2), bottom = Math.max(drag.y, y2);
+  Object.assign(drag.box.style, {left: Math.min(drag.x, x2) + 'px', top: top + 'px', width: Math.abs(x2 - drag.x) + 'px', height: (bottom - top) + 'px'});
+  const hits = visible().filter(row => {
+    const b = row.getBoundingClientRect(), t = b.top - r.top + L.scrollTop;
+    return t < bottom && t + b.height > top;
+  }).map(row => +row.dataset.id);
+  sel = new Set([...drag.base, ...hits]);
+  if (hits.length) { anchor = hits[0]; cur = hits[hits.length - 1] }
+  paint();
+}
+function autoScroll(){   // rola a lista sozinha quando o mouse encosta na borda
+  if (!drag || !drag.on) return;
+  const L = $('#list'), r = L.getBoundingClientRect();
+  const d = drag.cy < r.top + 30 ? -14 : drag.cy > r.bottom - 30 ? 14 : 0;
+  if (d) { L.scrollTop += d; marquee() }
+  requestAnimationFrame(autoScroll);
+}
+
+$('#list').addEventListener('click', e => {
+  if (justDragged) return;
+  const r = e.target.closest('.row');
+  if (!r) { if (!e.ctrlKey) { sel.clear(); paint() } return }   // clique no vazio limpa a seleção
+  const id = +r.dataset.id, act = e.target.closest('[data-act]')?.dataset.act;
+  if (act === 'explorer' || act === 'copy') return post({cmd:act, id});
+  if (act === 'del' || act === 'empty') { if (!sel.has(id)) select(id); return ask(false, act === 'empty') }
+  if (e.target.closest('.chev')) return toggle(id);   // só a setinha abre/fecha; clicar na linha apenas seleciona
+  select(id, e);
+});
+
+document.addEventListener('keydown', e => {
+  if ($('#back').classList.contains('on')) { if (e.key === 'Escape' && !busy) closeModal(); return }
+  if (busy || !$('#browser').classList.contains('on')) return;
+  const rows = visible().map(r => +r.dataset.id), i = rows.indexOf(cur);
+  const go = id => { select(id, {shiftKey:e.shiftKey}); rowOf(id).scrollIntoView({block:'nearest'}) };
+  if ((e.key === 'ArrowDown' || e.key === 'ArrowUp') && rows.length) {
+    e.preventDefault();
+    go(rows[Math.max(0, Math.min(rows.length - 1, i < 0 ? 0 : i + (e.key === 'ArrowDown' ? 1 : -1)))]);
+  }
+  else if (e.key === 'ArrowRight' && cur) { e.preventDefault(); expanded.has(cur) && rows[i + 1] && parentOf.get(rows[i + 1]) === cur ? go(rows[i + 1]) : toggle(cur, true) }
+  else if (e.key === 'ArrowLeft' && cur) { e.preventDefault(); expanded.has(cur) ? toggle(cur, false) : parentOf.get(cur) !== rootId && go(parentOf.get(cur)) }
+  else if ((e.key === 'Enter' || e.key === ' ') && cur) { e.preventDefault(); toggle(cur) }
+  else if (e.key === 'Delete') ask(e.shiftKey);
+  else if (e.key === 'b' || e.key === 'B') { pick = e.shiftKey ? 1 : null; askBattle() }   // Shift+B: força o duelo do Clawd
+  else if (e.key === 'a' && e.ctrlKey) { e.preventDefault(); sel = new Set(rows); paint() }
+  else if (e.key === 'Escape') { sel.clear(); paint() }
+});
+
+/* ---------- modais ---------- */
+function modal(html){ $('#modal').innerHTML = html; $('#back').classList.add('on') }
+function closeModal(){ $('#back').classList.remove('on') }
+
+function confirmModal(m, fight){   // fight: confirma antes de abrir a batalha
+  const p = m.permanent, E = m.empty;
+  const paths = `<div class="paths mono">${m.paths.map(x => `<div>${esc(x)}</div>`).join('')}${m.more ? `<div class="m">… e mais ${num(m.more)}</div>` : ''}</div>
+    <div class="sum"><span>${E ? 'serão apagados ' : ''}${m.count === 1 ? '1 item' : num(m.count) + ' itens'}</span><b class="mono">${fmt(m.total)}</b></div>`;
+  const go = permanent => {
+    closeModal();
+    // as linhas saem "varridas": no modo esvaziar, só o que está dentro das pastas
+    const rows = E ? m.ids.flatMap(id => [...document.querySelectorAll(`.node[data-id="${id}"] > .kids .row`)]) : [...document.querySelectorAll('#list .row.sel')];
+    rows.forEach(r => r.classList.add('swept'));
+    post({cmd:'delete', ids:m.ids, permanent, empty:E});
+  };
+  if (fight) {
+    modal(`
+      <div class="mhead"><div class="badge">${ICON.trash}</div>
+        <div><h3>Batalhar contra ${m.count === 1 ? "este item" : "estes itens"}?</h3>
+        <p>Se você vencer ou poupar, vai para a Lixeira (dá para restaurar depois). Fugir ou perder não apaga nada.</p></div></div>
+      ${paths}
+      <div class="mfoot"><button class="btn" id="cancel">Cancelar</button>
+        <button class="btn battle" id="go">Batalhar</button></div>`);
+    $("#go").onclick = () => { closeModal(); battle(m) };
+  } else   if (E) {   // esvaziar: a pessoa escolhe aqui entre Lixeira e de vez
+    modal(`
+      <div class="mhead"><div class="badge">${ICON.empty}</div>
+        <div><h3>Esvaziar ${m.ids.length === 1 ? 'pasta' : 'pastas'}?</h3>
+        <p>Tudo o que está dentro será apagado. ${m.ids.length === 1 ? 'A pasta continua existindo' : 'As pastas continuam existindo'}, só que vazia${m.ids.length === 1 ? '' : 's'}.</p></div></div>
+      ${paths}
+      <label class="check"><input type="checkbox" id="ok"> Para excluir de vez: entendo que não pode ser desfeito</label>
+      <div class="mfoot"><button class="btn" id="cancel">Cancelar</button>
+        <button class="btn danger" id="nukego" disabled>Esvaziar de vez</button>
+        <button class="btn primary" id="go">Esvaziar para a Lixeira</button></div>`);
+    $('#ok').onchange = e => $('#nukego').disabled = !e.target.checked;
+    $('#nukego').onclick = () => go(true);
+    $('#go').onclick = () => go(false);
+  } else {
+    modal(`
+      <div class="mhead"><div class="badge ${p ? 'red' : ''}">${p ? ICON.warn : ICON.trash}</div>
+        <div><h3>${p ? 'Excluir permanentemente?' : 'Mover para a Lixeira?'}</h3>
+        <p>${p ? 'Estes itens NÃO vão para a Lixeira e não podem ser recuperados.' : 'Você poderá restaurar pela Lixeira do Windows se precisar.'}</p></div></div>
+      ${paths}
+      ${p ? '<label class="check"><input type="checkbox" id="ok"> Entendo que isso não pode ser desfeito</label>' : ''}
+      <div class="mfoot"><button class="btn" id="cancel">Cancelar</button>
+        <button class="btn ${p ? 'danger' : 'primary'}" id="go" ${p ? 'disabled' : ''}>${p ? 'Excluir de vez' : 'Mover para a Lixeira'}</button></div>`);
+    if (p) $('#ok').onchange = e => $('#go').disabled = !e.target.checked;
+    $('#go').onclick = () => go(p);
+  }
+  $('#cancel').onclick = closeModal;
+  $('#cancel').focus();   // Enter cancela; confirmar exige clique
+}
+
+function blockedModal(m){
+  modal(`
+    <div class="mhead"><div class="badge">${ICON.shield}</div>
+      <div><h3>Bloqueado por segurança</h3><p>Este item ${esc(m.why)}. Apagá-lo pode quebrar o Windows ou seus programas.</p></div></div>
+    <div class="paths mono"><div>${esc(m.path)}</div></div>
+    <div class="mfoot"><button class="btn" id="cancel">Entendi</button></div>`);
+  $('#cancel').onclick = closeModal; $('#cancel').focus();
+}
+
+let toastTimer;
+function toast(text, err){
+  const t = $('#toast'); t.querySelector('span').textContent = text; t.classList.toggle('err', !!err);
+  t.classList.add('on'); clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.remove('on'), 2600);
+}
+
+post({cmd:'init'});
+</script>
+</body>
+</html>
