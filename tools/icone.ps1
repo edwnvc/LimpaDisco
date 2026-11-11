@@ -1,4 +1,4 @@
-# Gera icone.ico (espanador laranja) em vários tamanhos. Rodar: powershell -File icone.ps1
+# Gera assets/icone.ico (espanador laranja) em vários tamanhos. Rodar: powershell -File tools/icone.ps1
 Add-Type -AssemblyName System.Drawing
 $sizes = 16, 24, 32, 48, 64, 128, 256
 $pngs = foreach ($s in $sizes) {
@@ -48,5 +48,5 @@ for ($i = 0; $i -lt $sizes.Count; $i++) {
     $offset += $pngs[$i].Length
 }
 foreach ($png in $pngs) { $w.Write($png) }
-[IO.File]::WriteAllBytes((Join-Path $PSScriptRoot 'icone.ico'), $out.ToArray())
+[IO.File]::WriteAllBytes((Join-Path $PSScriptRoot '../assets/icone.ico'), $out.ToArray())
 "icone.ico gerado ($($sizes -join ', ') px)"

@@ -19,6 +19,12 @@ Precisa de:
 Na primeira vez o Windows pode mostrar "O Windows protegeu o computador", porque o programa não tem
 assinatura digital: clique em **Mais informações → Executar assim mesmo**.
 
+## Pastas
+
+- `src/` — código: o programa em C# e a interface (HTML + batalhas em JavaScript)
+- `assets/` — ícone do app, ícones dos botões e músicas das batalhas
+- `tools/` — script que gera o ícone
+
 ## Compilar
 
 ```

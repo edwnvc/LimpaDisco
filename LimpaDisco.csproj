@@ -9,18 +9,19 @@
     <SelfContained>false</SelfContained>
     <PublishSingleFile>true</PublishSingleFile>
     <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
-    <ApplicationIcon>icone.ico</ApplicationIcon>
+    <ApplicationIcon>assets\icone.ico</ApplicationIcon>
   </PropertyGroup>
   <ItemGroup>
-    <EmbeddedResource Include="index.html" LogicalName="index.html" />
-    <EmbeddedResource Include="batalha.js" LogicalName="batalha.js" />
-    <EmbeddedResource Include="batalha2.js" LogicalName="batalha2.js" />
-    <EmbeddedResource Include="musica.mp3" LogicalName="musica" />
-    <EmbeddedResource Include="musica2.mp3" LogicalName="musica2" />
-    <EmbeddedResource Include="musica3.mp3" LogicalName="musica3" />
-    <EmbeddedResource Include="musica4.mp3" LogicalName="musica4" />
-    <EmbeddedResource Include="musica5.mp3" LogicalName="musica5" />
-    <EmbeddedResource Include="batalha3.js" LogicalName="batalha3.js" />
+    <!-- a página e as batalhas vão dentro do .exe; o programa as serve pelo nome curto (LogicalName) -->
+    <EmbeddedResource Include="src\index.html" LogicalName="index.html" />
+    <EmbeddedResource Include="src\batalha.js" LogicalName="batalha.js" />
+    <EmbeddedResource Include="src\batalha2.js" LogicalName="batalha2.js" />
+    <EmbeddedResource Include="src\batalha3.js" LogicalName="batalha3.js" />
+    <EmbeddedResource Include="assets\musicas\desvio.mp3" LogicalName="musica" />
+    <EmbeddedResource Include="assets\musicas\duelo-clawd.mp3" LogicalName="musica2" />
+    <EmbeddedResource Include="assets\musicas\batalha-3d.mp3" LogicalName="musica3" />
+    <EmbeddedResource Include="assets\musicas\vitoria-3d.mp3" LogicalName="musica4" />
+    <EmbeddedResource Include="assets\musicas\chefao.mp3" LogicalName="musica5" />
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="Microsoft.Web.WebView2" Version="1.0.4314.35" />
