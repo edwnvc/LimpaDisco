@@ -9,6 +9,8 @@ const DRUM = [['#e8323c', 'd'], ['#f2c21a', 'f'], ['#2f7fe0', 'j'], ['#3cc04a', 
 const GUIT = [['#3cc04a', 'd'], ['#e8323c', 'f'], ['#f2c21a', 'j'], ['#2f7fe0', 'k'], ['#f08a1a', 'l']];   // guitarra: verde, vermelho, amarelo, azul, laranja
 const LOOK = 1.25, WIN = .1;   // segundos de antecedência em que a nota aparece; janela de acerto (±)
 let cv, ctx, root, S = null, raf = 0, actx = null, onEnd = null;
+let NOTAS = null, PISTA = null;   // imagens da pista e das notas (embutidas); sem elas, vale o desenho próprio
+const img = n => fetch(n).then(r => r.ok ? r.blob() : null).then(b => b && createImageBitmap(b)).catch(() => null);
 
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v)), rnd = (a, b) => a + Math.random() * (b - a);
 const fmt = b => { const u = ['B', 'KB', 'MB', 'GB', 'TB']; let i = 0; while (b >= 1024 && i < 4) { b /= 1024; i++ } return (i ? b.toLocaleString('pt-BR', { maximumFractionDigits: 1 }) : b) + ' ' + u[i] };
@@ -188,9 +190,10 @@ function draw() {
   const top = Math.ceil(yOf(ZTOP)), scroll = now * SPEED * 140;
   for (let y = top; y < H; y++) {
     const z = zOfY(y + .5), x0 = xOf(-.5, z), w = BW * sOf(z), v = ((z * 140 + scroll) % 256 + 256) % 256;
-    ctx.drawImage(BOARD, 0, v, 256, 1, x0, y, w, 1.2);
+    if (PISTA) ctx.drawImage(PISTA, 0, (((z + now * SPEED) * 640) % 1024 + 1024) % 1024, 512, 1, x0, y, w, 1.2);   // uma imagem a cada 1,6 de pista
+    else ctx.drawImage(BOARD, 0, v, 256, 1, x0, y, w, 1.2);
   }
-  quad(-.5, .5, -.12, ZTOP); ctx.fillStyle = 'rgba(0,0,0,.28)'; ctx.fill();   // escurece a textura: as notas se destacam
+  quad(-.5, .5, -.12, ZTOP); ctx.fillStyle = PISTA ? 'rgba(0,0,0,.1)' : 'rgba(0,0,0,.28)'; ctx.fill();   // escurece a textura: as notas se destacam
   const fog = ctx.createLinearGradient(0, top, 0, top + 90); fog.addColorStop(0, 'rgba(0,0,0,.75)'); fog.addColorStop(1, 'rgba(0,0,0,0)');
   quad(-.5, .5, -.12, ZTOP); ctx.fillStyle = fog; ctx.fill();
   if (S.spOn || S.spFlash > 0) { quad(-.5, .5, -.12, ZTOP); ctx.fillStyle = `rgba(70,180,255,${S.spOn ? .1 + .04 * Math.sin(S.t * 8) : 0})`; ctx.fill(); if (S.spFlash > 0) { ctx.fillStyle = `rgba(200,240,255,${S.spFlash * .3})`; ctx.fill() } }   // Star Power: pista azul
@@ -222,9 +225,9 @@ function draw() {
   // notas (de trás para a frente)
   for (let k = S.notes.length - 1; k >= 0; k--) {
     const n = S.notes[k]; if (n.done) continue; const z = (n.t - now) * SPEED; if (z > ZTOP || z < -.12) continue;
-    if (n.lanes) { const star = n.sp >= 0 && !S.spBroken.has(n.sp); for (const l of n.lanes) puck(xOf(laneU(l), z), yOf(z), BW / N * .36 * sOf(z), S.spOn ? '#5ad8ff' : S.lanes[l][0], false, n.hopo, star); continue }   // guitarra: acorde
+    if (n.lanes) { const star = n.sp >= 0 && !S.spBroken.has(n.sp); for (const l of n.lanes) puck(xOf(laneU(l), z), yOf(z), BW / N * .36 * sOf(z), S.spOn ? '#5ad8ff' : S.lanes[l][0], false, n.hopo, star, l); continue }   // guitarra: acorde
     if (n.lane < 0) { quad(-.48, .48, z - .02, z + .02); ctx.fillStyle = '#f08a1a'; ctx.fill(); quad(-.48, .48, z - .005, z + .005); ctx.fillStyle = '#ffe0b0'; ctx.fill() }   // bumbo
-    else puck(xOf(laneU(n.lane), z), yOf(z), BW / N * .36 * sOf(z), S.lanes[n.lane][0], n.cym);
+    else puck(xOf(laneU(n.lane), z), yOf(z), BW / N * .36 * sOf(z), S.lanes[n.lane][0], n.cym, false, false, [1, 2, 3, 0][n.lane]);   // bateria: vermelho, amarelo, azul, verde
   }
   // chamas dos acertos
   for (const f of S.fx) flame(xOf(laneU(f.lane), 0), yOf(0), BW / N * .42, f.t / .32);
@@ -248,7 +251,11 @@ function target(x, y, r, c, lit, lift = 0) {   // alvo: aro colorido, bisel prat
   }
   ctx.restore();
 }
-function puck(x, y, r, c, cym, hopo, star) {   // nota: botão com borda branca e tampa branca; hammer-on: mais baixo, tampa maior brilhando; Star Power: estrela
+function puck(x, y, r, c, cym, hopo, star, col) {   // nota: botão com borda branca e tampa branca; hammer-on: mais baixo, tampa maior brilhando; Star Power: estrela
+  if (NOTAS && col !== undefined && !cym) {   // folha de notas: linhas normal, hammer-on, estrela, estrela hammer-on e Star Power ligado
+    const row = S.spOn ? 4 : (star ? 2 : 0) + (hopo ? 1 : 0), cx = S.spOn ? (hopo ? 1 : 0) : col, w = r * 2.25, h = w * 100 / 160;   // mesma largura do aro do alvo
+    ctx.drawImage(NOTAS, cx * 160, row * 100, 160, 100, x - w / 2, y - h * .6, w, h); return;
+  }
   ctx.save(); ctx.translate(x, y); ctx.scale(1, .42);
   ctx.fillStyle = 'rgba(0,0,0,.45)'; ctx.beginPath(); ctx.ellipse(0, r * .7, r * 1.1, r * .9, 0, 0, 7); ctx.fill();
   const h = r * (hopo ? .3 : .55);   // altura do botão
@@ -422,6 +429,7 @@ window.Batalha5 = {
   async start(info, rect, end) {
     if (S) return true;
     const song = await loadSong().catch(() => null); if (!song) return false;
+    [NOTAS, PISTA] = await Promise.all([NOTAS || img('guitarra-notas'), PISTA || img('guitarra-pista')]);
     onEnd = end;
     root = document.createElement('div'); root.style.cssText = 'position:fixed;inset:0;z-index:100;display:grid;place-items:center;background:#0b0c12';
     cv = document.createElement('canvas'); root.appendChild(cv); document.body.appendChild(root); ctx = cv.getContext('2d'); fit();

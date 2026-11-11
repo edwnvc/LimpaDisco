@@ -28,6 +28,7 @@
     <!-- efeitos sonoros: assets/sons/x.mp3 vira o recurso "som-x" -->
     <EmbeddedResource Include="assets/sons/*.mp3" LogicalName="som-%(Filename)" />
     <EmbeddedResource Include="assets/fundos/*.webm" LogicalName="fundo-%(Filename)" />
+    <EmbeddedResource Include="assets/guitarra/*.png" LogicalName="guitarra-%(Filename)" />
     <!-- músicas do Clone Hero para a batalha de ritmo: uma pasta por música -->
     <EmbeddedResource Include="assets/ritmo/**/*.*" LogicalName="ritmo/%(RecursiveDir)%(Filename)%(Extension)" />
   </ItemGroup>
