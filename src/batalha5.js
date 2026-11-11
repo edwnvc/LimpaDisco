@@ -26,6 +26,29 @@ function timer(tempos, res) {
   const acc = [0]; for (let i = 1; i < tempos.length; i++) acc[i] = acc[i - 1] + (tempos[i][0] - tempos[i - 1][0]) * tempos[i - 1][1] / res / 1e6;
   return tick => { let i = tempos.length - 1; while (i > 0 && tempos[i][0] > tick) i--; return acc[i] + (tick - tempos[i][0]) * tempos[i][1] / res / 1e6 };
 }
+const beatsOf = (T, res, last) => { const b = []; for (let k = 0, t = 0; t < last + 4; k += res) b.push(t = T(k)); return b };
+// Guitarra: junta as notas do mesmo tick em acordes e aplica as regras do Guitar Hero III:
+// hammer-on/pull-off (HOPO) quando a nota vem a até 170/480 de tempo da anterior, é nota única e muda de casa;
+// marcas do mapa podem inverter (.chart) ou forçar (.mid) isso; tapping vale como HOPO. Notas longas viram sustain.
+// items: {tick, lane: 0-4 | 'flip' | 'on' | 'off' | 'tap', len}; phrases: [[tick, len]] de Star Power.
+function guitar(items, phrases, res, T, expert) {
+  const by = new Map();
+  for (const it of items) {
+    let c = by.get(it.tick); if (!c) by.set(it.tick, c = { tick: it.tick, lanes: [], len: 0, mark: {} });
+    if (typeof it.lane === 'string') c.mark[it.lane] = true; else if (!c.lanes.includes(it.lane)) { c.lanes.push(it.lane); c.len = Math.max(c.len, it.len) }
+  }
+  let ch = [...by.values()].filter(c => c.lanes.length).sort((a, b) => a.tick - b.tick);
+  for (const c of ch) { c.lanes.sort((a, b) => a - b); c.t = T(c.tick); c.end = c.len > res / 3 ? T(c.tick + c.len) : 0 }
+  if (expert) { let last = -1; ch = ch.filter(c => c.t - last >= .16 ? (last = c.t, true) : false) }   // só tem Expert: espaça as notas para dar no teclado
+  const thr = res * 170 / 480 + 1;
+  ch.forEach((c, i) => {
+    const p = ch[i - 1];
+    let h = !!p && c.lanes.length === 1 && c.tick - p.tick <= thr && !(p.lanes.length === 1 && p.lanes[0] === c.lanes[0]);
+    if (c.mark.flip) h = !h; if (c.mark.on) h = true; if (c.mark.off) h = false;
+    c.hopo = h || !!c.mark.tap; c.sp = phrases.findIndex(([s, l]) => c.tick >= s && c.tick < s + l);
+  });
+  return ch;
+}
 function parseChart(txt) {   // formato .chart (texto)
   const sec = {}; let cur = null;
   for (const raw of txt.split(/\r?\n/)) {
@@ -36,22 +59,25 @@ function parseChart(txt) {   // formato .chart (texto)
   const song = Object.fromEntries((sec.Song || []).map(([k, v]) => [k, v.replace(/^"|"$/g, '')]));
   const res = +song.Resolution || 192, tempos = [];
   for (const [k, v] of sec.SyncTrack || []) { const p = v.split(/\s+/); if (p[0] === 'B') tempos.push([+k, 6e10 / +p[1]]) }
-  const T = timer(tempos, res), beats = [];
-  const pickTrack = names => { for (const n of names) if (sec[n] && sec[n].some(([, v]) => v.startsWith('N'))) return sec[n] };
-  let drums = true, tr = pickTrack(['HardDrums', 'ExpertDrums', 'MediumDrums', 'EasyDrums']);
-  if (!tr) { drums = false; tr = pickTrack(['HardSingle', 'ExpertSingle', 'MediumSingle', 'EasySingle']) }
-  if (!tr) return null;
-  const expert = tr === sec.ExpertDrums || tr === sec.ExpertSingle;
-  const cym = new Set(), notes = [];
-  for (const [k, v] of tr) { const p = v.split(/\s+/); if (p[0] === 'N' && drums && +p[1] >= 66 && +p[1] <= 68) cym.add(k + ':' + (+p[1] - 64)) }   // marcas de prato (pro drums)
-  for (const [k, v] of tr) {
-    const p = v.split(/\s+/); if (p[0] !== 'N') continue; const n = +p[1], t = T(+k);
-    if (drums) { if (n === 0) notes.push({ t, lane: -1 }); else if (n >= 1 && n <= 4) notes.push({ t, lane: n - 1, cym: cym.has(k + ':' + n) }) }
-    else if (n <= 4) notes.push({ t, lane: n });
+  const T = timer(tempos, res), meta = { offset: +(song.Offset || 0), name: song.Name, artist: song.Artist, charter: song.Charter };
+  const pickTrack = names => { for (const n of names) if (sec[n] && sec[n].some(([, v]) => v.startsWith('N'))) return [n, sec[n]] };
+  const drum = pickTrack(['HardDrums', 'ExpertDrums', 'MediumDrums', 'EasyDrums']);
+  if (drum) {
+    const [name, tr] = drum, cym = new Set(), notes = [];
+    for (const [k, v] of tr) { const p = v.split(/\s+/); if (p[0] === 'N' && +p[1] >= 66 && +p[1] <= 68) cym.add(k + ':' + (+p[1] - 64)) }   // marcas de prato (pro drums)
+    for (const [k, v] of tr) { const p = v.split(/\s+/); if (p[0] !== 'N') continue; const n = +p[1], t = T(+k); if (n === 0) notes.push({ t, lane: -1 }); else if (n >= 1 && n <= 4) notes.push({ t, lane: n - 1, cym: cym.has(k + ':' + n) }) }
+    return { ...meta, notes, drums: true, expert: name === 'ExpertDrums', beats: beatsOf(T, res, Math.max(0, ...notes.map(n => n.t))) };
   }
-  const last = notes.length ? Math.max(...notes.map(n => n.t)) : 0;
-  for (let k = 0, t = 0; t < last + 4; k += res) beats.push(t = T(k));
-  return { notes, beats, drums, offset: +(song.Offset || 0), expert, name: song.Name, artist: song.Artist, charter: song.Charter };
+  const gtr = pickTrack(['HardSingle', 'ExpertSingle', 'MediumSingle', 'EasySingle']); if (!gtr) return null;
+  const items = [], phrases = [];
+  for (const [k, v] of gtr[1]) {
+    const p = v.split(/\s+/), n = +p[1];
+    if (p[0] === 'S' && n === 2) phrases.push([+k, +p[2]]);
+    if (p[0] !== 'N') continue;
+    items.push({ tick: +k, lane: n <= 4 ? n : n === 5 ? 'flip' : n === 6 ? 'tap' : 'x', len: +p[2] || 0 });
+  }
+  const notes = guitar(items.filter(i => i.lane !== 'x'), phrases, res, T, gtr[0] === 'ExpertSingle');
+  return { ...meta, notes, drums: false, beats: beatsOf(T, res, Math.max(0, ...notes.map(n => n.end || n.t))) };
 }
 function parseMidi(buf) {   // formato .mid (Rock Band / Clone Hero)
   const d = new DataView(buf); let p = 0;
@@ -60,32 +86,33 @@ function parseMidi(buf) {   // formato .mid (Rock Band / Clone Hero)
   if (u32() !== 0x4d546864) return null; u32(); u16(); const ntr = u16(), res = u16();
   const tracks = [], tempos = [];
   for (let i = 0; i < ntr; i++) {
-    if (u32() !== 0x4d54726b) return null; const len = u32(), end = p + len; let tick = 0, run = 0, name = ''; const ev = [];
+    if (u32() !== 0x4d54726b) return null; const len = u32(), end = p + len; let tick = 0, run = 0, name = ''; const ev = [], open = {};
     while (p < end) {
       tick += vlq(); let st = u8();
       if (st === 0xff) { const ty = u8(), l = vlq(), s = p; if (ty === 3) name = new TextDecoder().decode(new Uint8Array(buf, s, l)); if (ty === 0x51) tempos.push([tick, (d.getUint8(s) << 16) | (d.getUint8(s + 1) << 8) | d.getUint8(s + 2)]); p = s + l; continue }
       if (st === 0xf0 || st === 0xf7) { p += vlq(); continue }
       if (st < 0x80) { st = run; p-- } else run = st;
       const hi = st & 0xf0, a = u8(), b = hi === 0xc0 || hi === 0xd0 ? 0 : u8();
-      if (hi === 0x90 && b > 0) ev.push([tick, a]);
+      if (hi === 0x90 && b > 0) open[a] = tick;                                                                                 // nota começa
+      else if ((hi === 0x80 || hi === 0x90) && open[a] !== undefined) { ev.push([open[a], a, tick - open[a]]); delete open[a] }   // nota termina: guarda a duração
     }
-    p = end; tracks.push({ name, ev });
+    p = end; ev.sort((x, y) => x[0] - y[0]); tracks.push({ name, ev });
   }
-  const T = timer(tempos, res), find = n => tracks.find(t => t.name === n), beats = [];
-  let drums = true, tr = find('PART DRUMS'); if (!tr) { drums = false; tr = find('PART GUITAR') }
-  if (!tr) return null;
-  const base = [84, 96, 72, 60].find(b => tr.ev.some(([, n]) => n >= b && n <= b + 4));   // difícil, expert, médio, fácil
-  if (base === undefined) return null;
-  const toms = tr.ev.filter(([, n]) => n >= 110 && n <= 112).map(([k, n]) => k + ':' + (n - 108));   // marcas de tambor (sem elas, amarelo/azul/verde são pratos)
-  const notes = [];
-  for (const [k, n] of tr.ev) {
-    if (n < base || n > base + 4) continue; const t = T(k), i = n - base;
-    if (drums) notes.push(i === 0 ? { t, lane: -1 } : { t, lane: i - 1, cym: i >= 2 && !toms.includes(k + ':' + i) });
-    else notes.push({ t, lane: i });
+  const T = timer(tempos, res), find = n => tracks.find(t => t.name === n);
+  const dr = find('PART DRUMS');
+  if (dr) {
+    const base = [84, 96, 72, 60].find(b => dr.ev.some(([, n]) => n >= b && n <= b + 4)); if (base === undefined) return null;   // difícil, expert, médio, fácil
+    const toms = dr.ev.filter(([, n]) => n >= 110 && n <= 112).map(([k, n]) => k + ':' + (n - 108));   // marcas de tambor (sem elas, amarelo/azul/verde são pratos)
+    const notes = [];
+    for (const [k, n] of dr.ev) { if (n < base || n > base + 4) continue; const t = T(k), i = n - base; notes.push(i === 0 ? { t, lane: -1 } : { t, lane: i - 1, cym: i >= 2 && !toms.includes(k + ':' + i) }) }
+    return { notes, drums: true, offset: 0, expert: base === 96, beats: beatsOf(T, res, Math.max(0, ...notes.map(n => n.t))) };
   }
-  const last = notes.length ? Math.max(...notes.map(n => n.t)) : 0;
-  for (let k = 0, t = 0; t < last + 4; k += res) beats.push(t = T(k));
-  return { notes, beats, drums, offset: 0, expert: base === 96 };
+  const gt = find('PART GUITAR'); if (!gt) return null;
+  const base = [84, 96, 72, 60].find(b => gt.ev.some(([, n]) => n >= b && n <= b + 4)); if (base === undefined) return null;
+  const items = [], phrases = gt.ev.filter(([, n]) => n === 116).map(([k, , l]) => [k, l]);   // 116: trecho de Star Power
+  for (const [k, n, l] of gt.ev) { const i = n - base; if (i >= 0 && i <= 4) items.push({ tick: k, lane: i, len: l }); else if (i === 5) items.push({ tick: k, lane: 'on' }); else if (i === 6) items.push({ tick: k, lane: 'off' }) }
+  const notes = guitar(items, phrases, res, T, base === 96);
+  return { notes, drums: false, offset: 0, beats: beatsOf(T, res, Math.max(0, ...notes.map(n => n.end || n.t))) };
 }
 async function loadSong() {
   const r = await fetch('ritmo-lista'); if (!r.ok) return null;
@@ -96,16 +123,14 @@ async function loadSong() {
   const chartF = files.find(f => /\/notes\.chart$/i.test(f)), midF = files.find(f => /\/notes\.mid$/i.test(f));
   const chart = chartF ? parseChart(await (await get(chartF)).text()) : midF ? parseMidi(await (await get(midF)).arrayBuffer()) : null;
   if (!chart || !chart.notes.length) return null;
-  if (chart.expert) {   // só tem Expert: tira notas coladas demais (acordes ficam), para dar para tocar no teclado
-    chart.notes.sort((a, b) => a.t - b.t); let last = -1;
-    chart.notes = chart.notes.filter(n => { if (n.t - last < .002) return true; if (n.t - last < .16) return false; last = n.t; return true });
-  }
+  chart.notes.sort((a, b) => a.t - b.t);
+  if (chart.drums && chart.expert) { let last = -1; chart.notes = chart.notes.filter(n => { if (n.t - last < .002) return true; if (n.t - last < .16) return false; last = n.t; return true }) }
   const ini = files.find(f => /\/song\.ini$/i.test(f)), info = {};
   if (ini) for (const l of (await (await get(ini)).text()).split(/\r?\n/)) { const m = l.match(/^\s*([\w_]+)\s*=\s*(.*)$/); if (m) info[m[1].toLowerCase()] = m[2].trim() }
   const stems = files.filter(f => /\.(ogg|opus|mp3|wav)$/i.test(f) && !/\/(preview|crowd)[^/]*$/i.test(f));
   const bufs = (await Promise.all(stems.map(f => get(f).then(r => r.arrayBuffer()).then(b => ac().decodeAudioData(b)).catch(() => null)))).filter(Boolean);
   return { ...chart, bufs, name: info.name || chart.name || dir.split('/').pop(), artist: info.artist || chart.artist || '', charter: info.charter || info.frets || chart.charter || '',
-    delay: chart.offset + (+(info.delay || 0)) / 1000 };
+    delay: (chart.offset || 0) + (+(info.delay || 0)) / 1000 };
 }
 
 /* ---------------- perspectiva da pista ---------------- */
@@ -164,6 +189,7 @@ function draw() {
   quad(-.5, .5, -.12, ZTOP); ctx.fillStyle = 'rgba(0,0,0,.28)'; ctx.fill();   // escurece a textura: as notas se destacam
   const fog = ctx.createLinearGradient(0, top, 0, top + 90); fog.addColorStop(0, 'rgba(0,0,0,.75)'); fog.addColorStop(1, 'rgba(0,0,0,0)');
   quad(-.5, .5, -.12, ZTOP); ctx.fillStyle = fog; ctx.fill();
+  if (S.spOn || S.spFlash > 0) { quad(-.5, .5, -.12, ZTOP); ctx.fillStyle = `rgba(70,180,255,${S.spOn ? .1 + .04 * Math.sin(S.t * 8) : 0})`; ctx.fill(); if (S.spFlash > 0) { ctx.fillStyle = `rgba(200,240,255,${S.spFlash * .3})`; ctx.fill() } }   // Star Power: pista azul
   // trilhos de metal azulado nas bordas
   for (const [u0, u1] of [[-.54, -.5], [.5, .54]]) {
     quad(u0, u1, -.12, ZTOP); const m = ctx.createLinearGradient(xOf(u0, 0), 0, xOf(u1, 0), 0);
@@ -183,10 +209,16 @@ function draw() {
   }
   // linha de batida e alvos
   ctx.fillStyle = 'rgba(230,236,240,.8)'; ctx.fillRect(xOf(-.5, -.02), yOf(-.02), BW * sOf(-.02), 2);
-  for (let i = 0; i < N; i++) target(xOf(laneU(i), 0), yOf(0), BW / N * .42, S.lanes[i][0], S.press[i] > 0);
+  for (let i = 0; i < N; i++) target(xOf(laneU(i), 0), yOf(0), BW / N * .42, S.lanes[i][0], S.press[i] > 0 || S.held[i]);   // casa segurada fica acesa
+  // caudas das notas longas: acesas enquanto seguradas, cinzas se soltou antes
+  if (!S.drums) for (const n of S.notes) {
+    if (n.t - now > LOOK) break; if (!n.end || n.miss || (n.done && S.sus !== n && !n.dropped)) continue;
+    const z0 = Math.max(0, (n.t - now) * SPEED), z1 = Math.min(ZTOP, (n.end - now) * SPEED); if (z1 > z0) for (const l of n.lanes) tail(laneU(l), z0, z1, S.spOn ? '#5ad8ff' : S.lanes[l][0], S.sus === n, n.dropped);
+  }
   // notas (de trás para a frente)
   for (let k = S.notes.length - 1; k >= 0; k--) {
     const n = S.notes[k]; if (n.done) continue; const z = (n.t - now) * SPEED; if (z > ZTOP || z < -.12) continue;
+    if (n.lanes) { const star = n.sp >= 0 && !S.spBroken.has(n.sp); for (const l of n.lanes) puck(xOf(laneU(l), z), yOf(z), BW / N * .36 * sOf(z), S.spOn ? '#5ad8ff' : S.lanes[l][0], false, n.hopo, star); continue }   // guitarra: acorde
     if (n.lane < 0) { quad(-.48, .48, z - .02, z + .02); ctx.fillStyle = '#f08a1a'; ctx.fill(); quad(-.48, .48, z - .005, z + .005); ctx.fillStyle = '#ffe0b0'; ctx.fill() }   // bumbo
     else puck(xOf(laneU(n.lane), z), yOf(z), BW / N * .36 * sOf(z), S.lanes[n.lane][0], n.cym);
   }
@@ -203,17 +235,25 @@ function target(x, y, r, c, lit) {   // alvo: aro colorido, bisel prateado e cen
   ctx.fillStyle = lit ? 'rgba(255,255,255,.6)' : '#141518'; ctx.beginPath(); ctx.arc(0, -r * .1, r * .48, 0, 7); ctx.fill();
   ctx.restore();
 }
-function puck(x, y, r, c, cym) {   // nota: botão colorido com borda branca e tampa branca brilhante
+function puck(x, y, r, c, cym, hopo, star) {   // nota: botão com borda branca e tampa branca; hammer-on: mais baixo, tampa maior brilhando; Star Power: estrela
   ctx.save(); ctx.translate(x, y); ctx.scale(1, .42);
   ctx.fillStyle = 'rgba(0,0,0,.45)'; ctx.beginPath(); ctx.ellipse(0, r * .7, r * 1.1, r * .9, 0, 0, 7); ctx.fill();
-  const h = r * .55;   // altura do botão
+  const h = r * (hopo ? .3 : .55);   // altura do botão
   ctx.fillStyle = '#d8dce2'; ctx.beginPath(); ctx.arc(0, h, r * 1.08, 0, 7); ctx.fill();   // borda de baixo
   const side = ctx.createLinearGradient(-r, 0, r, 0); side.addColorStop(0, shade(c, -.35)); side.addColorStop(.5, c); side.addColorStop(1, shade(c, -.35));
   ctx.fillStyle = side; ctx.fillRect(-r, 0, r * 2, h); ctx.beginPath(); ctx.arc(0, h, r, 0, Math.PI); ctx.fill();
   ctx.fillStyle = cym ? '#ffe9a0' : c; ctx.beginPath(); ctx.arc(0, 0, r, 0, 7); ctx.fill();
   ctx.fillStyle = '#f4f6f8'; ctx.beginPath(); ctx.arc(0, -r * .05, r * .62, 0, 7); ctx.fill();   // tampa branca
   const g = ctx.createRadialGradient(-r * .2, -r * .3, 0, 0, 0, r * .62); g.addColorStop(0, '#ffffff'); g.addColorStop(1, 'rgba(200,205,215,.6)'); ctx.fillStyle = g; ctx.beginPath(); ctx.arc(0, -r * .05, r * .55, 0, 7); ctx.fill();
+  if (hopo) { ctx.fillStyle = 'rgba(255,255,255,.95)'; ctx.beginPath(); ctx.arc(0, -r * .05, r * .8, 0, 7); ctx.fill(); ctx.strokeStyle = c; ctx.lineWidth = r * .12; ctx.stroke() }
+  if (star) { ctx.fillStyle = '#ffffff'; ctx.strokeStyle = c; ctx.lineWidth = r * .14; ctx.beginPath(); for (let i = 0; i < 10; i++) { const a = -Math.PI / 2 + i * Math.PI / 5, rr = i % 2 ? r * .45 : r * 1.05; ctx.lineTo(Math.cos(a) * rr, Math.sin(a) * rr - r * .05) } ctx.closePath(); ctx.fill(); ctx.stroke() }
   ctx.restore();
+}
+function tail(u, z0, z1, c, on, dropped) {   // cauda da nota longa (ondula quando está sendo segurada)
+  const w = BW / S.lanes.length * .09, L = [], R = [];
+  for (let z = z0; z <= z1 + .001; z += .04) { const zz = Math.min(z, z1), s = sOf(zz), wob = on ? Math.sin(zz * 40 - S.t * 30) * w * .35 : 0; L.push([xOf(u, zz) - (w + wob) * s, yOf(zz)]); R.push([xOf(u, zz) + (w - wob) * s, yOf(zz)]) }
+  ctx.beginPath(); L.forEach(([x, y]) => ctx.lineTo(x, y)); R.reverse().forEach(([x, y]) => ctx.lineTo(x, y)); ctx.closePath();
+  ctx.fillStyle = dropped ? '#4a4c52' : c; if (on) { ctx.shadowColor = c; ctx.shadowBlur = 10 } ctx.fill(); ctx.shadowBlur = 0;
 }
 function shade(hex, k) { const n = parseInt(hex.slice(1), 16), f = v => clamp(Math.round(v * (1 + k)), 0, 255); return `rgb(${f(n >> 16)},${f(n >> 8 & 255)},${f(n & 255)})` }
 function flame(x, y, r, k) {   // chama subindo do alvo
@@ -251,36 +291,80 @@ function hud(now) {
   ctx.textAlign = 'center';
   if (now < 0) { ctx.font = `900 46px ${FONT}`; ctx.fillStyle = '#fff'; ctx.shadowColor = '#000'; ctx.shadowBlur = 10; ctx.fillText(Math.ceil(-now), CX, 170); ctx.shadowBlur = 0 }
   ctx.font = `800 10px ${FONT}`; ctx.fillStyle = 'rgba(255,255,255,.75)'; S.lanes.forEach(([, k], i) => ctx.fillText(k.toUpperCase(), xOf(laneU(i), 0), yOf(0) + 4));
-  if (S.drums) ctx.fillText('ESPAÇO = bumbo', CX, H - 6);
+  ctx.shadowColor = '#000'; ctx.shadowBlur = 4; ctx.fillText(S.drums ? 'ESPAÇO = bumbo' : 'segure as casas e palhete: ESPAÇO / ENTER / ↑↓   ·   SHIFT: Star Power', CX, H - 6); ctx.shadowBlur = 0;
+  // barra de Star Power (4 partes) em cima do painel de pontos
+  for (let i = 0; i < 4; i++) { const f = clamp(S.sp * 4 - i, 0, 1); ctx.fillStyle = '#0c0d10'; ctx.fillRect(22 + i * 23, 180, 21, 10); ctx.fillStyle = S.spOn ? '#9ae8ff' : '#3aa8ff'; ctx.fillRect(23 + i * 23, 181, 19 * f, 8) }
+  if (S.sp >= .5 && !S.spOn && Math.floor(S.t * 3) % 2) { ctx.font = `900 10px ${FONT}`; ctx.fillStyle = '#9ae8ff'; ctx.fillText('SHIFT: STAR POWER!', 68, 175) }
   if (S.msg) { ctx.fillStyle = 'rgba(0,0,0,.65)'; ctx.fillRect(0, 0, W, H); ctx.fillStyle = '#fff'; ctx.font = `900 28px ${FONT}`; ctx.fillText(S.msg[0], W / 2, 150); ctx.font = `500 14px ${FONT}`; ctx.fillStyle = '#e0d8d0'; S.msg.slice(1).forEach((l, i) => ctx.fillText(l, W / 2, 182 + i * 22)) }
   ctx.textAlign = 'left';
 }
 
 /* ---------------- jogo ---------------- */
+// Guitarra (como no GH3): segure as casas e palhete (Espaço, Enter ou setas ↑/↓). Hammer-on/pull-off sai só trocando
+// a casa, se você vinha acertando. Notas longas: segure para ganhar pontos. Trechos de Star Power completos enchem a barra;
+// com Shift ela é ativada: multiplicador dobra e o medidor de rock sobe mais rápido. Bateria: cada pista é uma tecla.
+const STRUM = ['Enter', 'ArrowUp', 'ArrowDown', ' '];
 function songTime() { return S.startAt ? ac().currentTime - S.startAt - S.delay : -3 }
-function hit(lane) {
-  const now = songTime(); let best = null;
-  for (const n of S.notes) { if (n.done || n.lane !== lane) continue; const dt = n.t - now; if (dt > WIN) break; if (Math.abs(dt) <= WIN && (!best || Math.abs(dt) < Math.abs(best.t - now))) best = n }
-  if (!best) { if (S.streak) S.streak = 0, S.mult = 1; return }   // batida no vazio quebra a sequência
-  best.done = true; S.streak++; S.mult = Math.min(4, 1 + Math.floor(S.streak / 10));
-  S.score += 50 * S.mult; S.rock = Math.min(1, S.rock + .025); S.ehp -= S.mult; S.ehit = .12;
-  if (lane >= 0) S.fx.push({ lane, t: 0 });
+function scoreHit(lanes, n) {
+  S.streak++; S.mult = Math.min(4, 1 + Math.floor(S.streak / 10));
+  const m = S.mult * (S.spOn ? 2 : 1);
+  S.score += 50 * lanes.length * m; S.rock = Math.min(1, S.rock + (S.spOn ? .05 : .025)); S.ehp -= m; S.ehit = .12;
+  for (const lane of lanes) if (lane >= 0) S.fx.push({ lane, t: 0 });
+  if (n && n.sp >= 0 && S.spLast[n.sp] === n && !S.spBroken.has(n.sp)) { S.sp = Math.min(1, S.sp + .25); S.spFlash = .6; [880, 1175, 1568].forEach((f, i) => setTimeout(() => tone(f, .1, 'triangle', .05), i * 60)) }   // completou um trecho de Star Power
   if (S.ehp <= 0 && !S.end) finish(true);
 }
+function breakStreak(rock = 0) { S.streak = 0; S.mult = 1; S.rock -= rock }
+function hitDrum(lane) {
+  const now = songTime(); let best = null;
+  for (const n of S.notes) { if (n.done || n.lane !== lane) continue; const dt = n.t - now; if (dt > WIN) break; if (Math.abs(dt) <= WIN && (!best || Math.abs(dt) < Math.abs(best.t - now))) best = n }
+  if (!best) return breakStreak();   // batida no vazio quebra a sequência
+  best.done = true; scoreHit([lane]);
+}
+function nextChord(now) { for (const c of S.notes) if (!c.done && c.t >= now - WIN) return c.t - now <= WIN ? c : null; return null }
+function fretsOk(c) {   // acorde: exatamente essas casas; nota única: ela é a casa mais alta apertada (as de baixo podem ficar)
+  const held = S.held.map((h, i) => h ? i : -1).filter(i => i >= 0);
+  if (c.lanes.length > 1) return held.length === c.lanes.length && c.lanes.every(l => S.held[l]);
+  return held.length > 0 && held[held.length - 1] === c.lanes[0];
+}
+function hitChord(c) {
+  c.done = true; S.chain = true; S.lastHitAt = songTime();
+  if (c.end) S.sus = c;   // nota longa: começa a contar enquanto as casas ficam apertadas
+  scoreHit(c.lanes, c);
+}
+function strum() {
+  const now = songTime(), c = nextChord(now);
+  if (c && fretsOk(c)) return hitChord(c);
+  if (now - S.lastHitAt < .06) return;   // palhetada logo depois de um hammer-on: não pune
+  S.chain = false; breakStreak(.02); tone(140, .06, 'square', .03);   // palhetou errado ou no vazio
+}
+function tryHopo() { const now = songTime(), c = nextChord(now); if (c && c.hopo && S.chain && fretsOk(c)) hitChord(c) }
+function missed(n) {
+  n.done = true; n.miss = true; S.chain = false; breakStreak(.04); tone(110, .08, 'sawtooth', .04);
+  if (n.sp >= 0) S.spBroken.add(n.sp);
+  if (S.sus === n) S.sus = null;
+}
+function beatLen(now) { const b = S.beats; let i = S.bi || 0; while (i < b.length - 2 && b[i + 1] < now) i++; S.bi = i; return Math.max(.2, (b[i + 1] - b[i]) || .5) }
 function frame() {
   if (!S) return;
-  const now = performance.now(), dt = Math.min(.05, (now - (S.last || now)) / 1000); S.last = now; S.t += dt; S.ehit = Math.max(0, S.ehit - dt);
+  const now = performance.now(), dt = Math.min(.05, (now - (S.last || now)) / 1000); S.last = now; S.t += dt; S.ehit = Math.max(0, S.ehit - dt); S.spFlash = Math.max(0, S.spFlash - dt);
   for (const k in S.press) S.press[k] = Math.max(0, S.press[k] - dt);
-  S.fx.forEach(f => f.t += dt); S.fx = S.fx.filter(f => f.t < .28);
+  S.fx.forEach(f => f.t += dt); S.fx = S.fx.filter(f => f.t < .32);
   const st = songTime();
   if (!S.end && S.startAt) {
-    for (const n of S.notes) { if (n.t > st - WIN) break; if (!n.done) { n.done = true; n.miss = true; S.streak = 0; S.mult = 1; S.rock -= .04; tone(110, .08, 'sawtooth', .04) } }   // passou sem acertar
+    for (const n of S.notes) { if (n.t > st - WIN) break; if (!n.done) missed(n) }   // passou sem acertar
+    const c = S.sus;
+    if (c) {   // nota longa: pontos por tempo enquanto as casas estiverem apertadas
+      if (st >= c.end) S.sus = null;
+      else if (c.lanes.every(l => S.held[l])) { S.score += Math.round(dt / beatLen(st) * 25 * S.mult * (S.spOn ? 2 : 1)); for (const l of c.lanes) if (Math.random() < .3) S.fx.push({ lane: l, t: .15 }) }
+      else { c.dropped = true; S.sus = null }
+    }
+    if (S.spOn) { S.sp -= dt / (beatLen(st) * 32); if (S.sp <= 0) { S.sp = 0; S.spOn = false } }   // a barra cheia dura 32 tempos
     if (S.rock <= 0) finish(false); else if (st > S.len + 1.5) finish(true);
   }
   draw(); raf = requestAnimationFrame(frame);
 }
 async function finish(won) {
-  S.end = true; const a = ac(), t = a.currentTime;
+  S.end = true; S.sus = null; const a = ac(), t = a.currentTime;
   for (const { src, g } of S.play) { if (won) g.gain.setTargetAtTime(0, t, .4); else { src.playbackRate.setValueAtTime(1, t); src.playbackRate.linearRampToValueAtTime(.25, t + 1.4); g.gain.setTargetAtTime(0, t + .6, .3) } }   // perdeu: a música "desafina" e para
   if (won) { [523, 659, 784, 1046].forEach((f, i) => setTimeout(() => tone(f, .14, 'square', .05), 400 + i * 110)); S.msg = ['ARQUIVO DESTRUÍDO!', `${S.fname} foi para a Lixeira.`, `${fmt(S.info.total)} liberados · ${S.score.toLocaleString('en-US')} pontos`, 'Z para continuar'] }
   else S.msg = ['VOCÊ FALHOU', `${S.fname} continua no seu disco.`, 'Z tentar de novo    ESC desistir'];
@@ -293,16 +377,25 @@ function startAudio() {
 }
 function onKey(e) {
   if (!S) return; e.preventDefault(); e.stopPropagation();
-  const k = e.key.length === 1 ? e.key.toLowerCase() : e.key;
-  if (e.type === 'keyup') return; if (e.repeat) return;
+  const k = e.key.length === 1 ? e.key.toLowerCase() : e.key, up = e.type === 'keyup';
+  const fret = S.lanes.findIndex(([, key]) => key === k);
+  if (!S.drums && fret >= 0) {   // casas da guitarra: apertar e soltar contam (hammer-on e pull-off)
+    if (S.held[fret] === !up) return; S.held[fret] = !up; if (!up) S.press[fret] = .12;
+    if (!S.end && S.startAt) tryHopo(); return;
+  }
+  if (up || e.repeat) return;
   if (S.end) { if (S.won && (k === 'z' || k === 'Enter')) close(true); else if (!S.won && (k === 'z' || k === 'Enter')) restart(); else if (!S.won && k === 'Escape') close(false); return }
   if (k === 'Escape') { S.end = true; S.won = false; for (const { src } of S.play || []) try { src.stop() } catch {} return close(false) }
-  if (k === ' ' && S.drums) { hit(-1); return }
-  const i = S.lanes.findIndex(([, key]) => key === k); if (i >= 0) { S.press[i] = .12; hit(i) }
+  if (k === 'Shift' && S.sp >= .5 && !S.spOn) { S.spOn = true; S.spFlash = 1; [523, 784, 1046, 1568].forEach((f, i) => setTimeout(() => tone(f, .15, 'sawtooth', .04), i * 50)); return }   // ativa Star Power
+  if (S.drums) { if (k === ' ') hitDrum(-1); else if (fret >= 0) { S.press[fret] = .12; hitDrum(fret) } return }
+  if (STRUM.includes(e.key)) { S.strumT = .1; strum() }
 }
 function restart() { for (const { src } of S.play) try { src.stop() } catch {} Object.assign(S, fresh(S.song)); startAudio() }
 function fresh(song) {
-  return { notes: song.notes.map(n => ({ ...n })), rock: .5, score: 0, streak: 0, mult: 1, fx: [], press: {}, end: false, won: false, msg: null, ehp: S.emax };
+  const notes = song.notes.map(n => ({ ...n })), spLast = {};
+  for (const n of notes) if (n.sp >= 0) spLast[n.sp] = n;   // última nota de cada trecho de Star Power
+  return { notes, spLast, spBroken: new Set(), sp: 0, spOn: false, spFlash: 0, sus: null, chain: false, lastHitAt: -9, held: [false, false, false, false, false], strumT: 0, bi: 0,
+    rock: .5, score: 0, streak: 0, mult: 1, fx: [], press: {}, end: false, won: false, msg: null, ehp: S.emax };
 }
 function fit() { const s = Math.min(innerWidth / W, innerHeight / H), dpr = devicePixelRatio || 1; cv.style.width = W * s + 'px'; cv.style.height = H * s + 'px'; cv.width = Math.round(W * s * dpr); cv.height = Math.round(H * s * dpr); ctx.setTransform(cv.width / W, 0, 0, cv.height / H, 0, 0) }
 function close(won) {
@@ -320,16 +413,21 @@ window.Batalha5 = {
     root = document.createElement('div'); root.style.cssText = 'position:fixed;inset:0;z-index:100;display:grid;place-items:center;background:#0b0c12';
     cv = document.createElement('canvas'); root.appendChild(cv); document.body.appendChild(root); ctx = cv.getContext('2d'); fit();
     const lv = Math.log2(1 + info.total / 1048576), boss = info.total >= 1024 ** 3;
-    song.notes.sort((a, b) => a.t - b.t);
-    const len = song.notes[song.notes.length - 1].t, hits = song.notes.length;
+    const len = Math.max(...song.notes.map(n => n.end || n.t)), hits = song.notes.length;
     const emax = Math.round(clamp(hits * .45, 40, 200) * (boss ? 1.4 : 1) * clamp(.8 + lv * .06, .8, 1.4));   // dá para vencer antes do fim da música
     S = { info, song, t: 0, lanes: song.drums ? DRUM : GUIT, drums: song.drums, beats: song.beats, len, delay: song.delay, emax, boss,
-      maxScore: hits * 50 * 3.4, title: song.name, sub: [song.artist, song.charter && 'mapa: ' + song.charter].filter(Boolean).join(' · '),
+      title: song.name, sub: [song.artist, song.charter && 'mapa: ' + song.charter].filter(Boolean).join(' · '),
       type: info.count > 1 ? (info.kind === 'dir' ? 'dir' : 'doc') : Batalha.typeOf(info.file || info.name, info.kind), fname: info.name.length > 20 ? info.name.slice(0, 19) + '…' : info.name };
     Object.assign(S, fresh(song));
     addEventListener('keydown', onKey, true); addEventListener('keyup', onKey, true); addEventListener('resize', fit);
     startAudio(); raf = requestAnimationFrame(frame);
     return true;
   },
+};
+// Testes rápidos das regras (rodam só se pedirem: Batalha5._teste()).
+window.Batalha5._teste = () => {
+  const T = t => t / 480 / 2, ch = guitar([{ tick: 0, lane: 0, len: 0 }, { tick: 120, lane: 1, len: 0 }, { tick: 240, lane: 1, len: 0 }, { tick: 960, lane: 2, len: 960 }, { tick: 1080, lane: 3, len: 0 }, { tick: 1080, lane: 4, len: 0 }, { tick: 1440, lane: 'flip' }, { tick: 1440, lane: 0, len: 0 }], [[0, 300]], 480, T, false);
+  const ok = [ch[0].hopo === false, ch[1].hopo === true, ch[2].hopo === false, ch[3].hopo === false && ch[3].end > 0, ch[4].lanes.length === 2 && !ch[4].hopo, ch[5].hopo === true, ch[0].sp === 0 && ch[3].sp === -1];
+  return ok.every(Boolean) || ok;
 };
 })();
