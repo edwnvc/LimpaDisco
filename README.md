@@ -4,7 +4,7 @@ Mostra o que está ocupando o seu disco, do maior para o menor, em árvore, e ap
 (pastas do sistema são bloqueadas e tudo vai para a Lixeira, a não ser que você peça "excluir de vez").
 
 Para deixar a faxina divertida, dá para **batalhar** contra o arquivo antes de apagá-lo:
-uma batalha de desvio, um duelo por turnos com o Clawd e uma batalha 3D em grupo.
+uma batalha de desvio, um duelo por turnos com o Clawd, uma batalha 3D em grupo e uma batalha psicodélica em primeira pessoa.
 Arquivos de 1 GB ou mais viram chefão.
 
 ## Baixar

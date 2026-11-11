@@ -17,6 +17,7 @@
     <EmbeddedResource Include="src\batalha.js" LogicalName="batalha.js" />
     <EmbeddedResource Include="src\batalha2.js" LogicalName="batalha2.js" />
     <EmbeddedResource Include="src\batalha3.js" LogicalName="batalha3.js" />
+    <EmbeddedResource Include="src/batalha4.js" LogicalName="batalha4.js" />
     <EmbeddedResource Include="assets\musicas\desvio.mp3" LogicalName="musica" />
     <EmbeddedResource Include="assets\musicas\duelo-clawd.mp3" LogicalName="musica2" />
     <EmbeddedResource Include="assets\musicas\batalha-3d.mp3" LogicalName="musica3" />
