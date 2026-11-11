@@ -213,7 +213,7 @@ function draw() {
   }
   // linha de batida e alvos
   ctx.fillStyle = 'rgba(230,236,240,.8)'; ctx.fillRect(xOf(-.5, -.02), yOf(-.02), BW * sOf(-.02), 2);
-  for (let i = 0; i < N; i++) target(xOf(laneU(i), 0), yOf(0), BW / N * .42, S.lanes[i][0], S.press[i] > 0 || S.held[i]);   // casa segurada fica acesa
+  for (let i = 0; i < N; i++) target(xOf(laneU(i), 0), yOf(0), BW / N * .33, S.lanes[i][0], S.press[i] > 0 || S.held[i], S.spring[i].p);   // casa segurada fica acesa e o botão sobe
   // caudas das notas longas: acesas enquanto seguradas, cinzas se soltou antes
   if (!S.drums) for (const n of S.notes) {
     if (n.t - now > LOOK) break; if (!n.end || n.miss || (n.done && S.sus !== n && !n.dropped)) continue;
@@ -232,13 +232,20 @@ function draw() {
   ctx.restore();
   hud(now);
 }
-function target(x, y, r, c, lit) {   // alvo: aro colorido, bisel prateado e centro escuro (acende quando a tecla está apertada)
+function target(x, y, r, c, lit, lift = 0) {   // alvo: aro colorido, bisel prateado e centro escuro; lift: quanto o botão saiu do aro (mola)
   ctx.save(); ctx.translate(x, y); ctx.scale(1, .36);
   ctx.fillStyle = 'rgba(0,0,0,.5)'; ctx.beginPath(); ctx.arc(0, r * .35, r * 1.2, 0, 7); ctx.fill();
   ctx.fillStyle = c; ctx.beginPath(); ctx.arc(0, 0, r * 1.15, 0, 7); ctx.fill();
   const m = ctx.createLinearGradient(0, -r, 0, r); m.addColorStop(0, '#ffffff'); m.addColorStop(.5, '#b8bcc4'); m.addColorStop(1, '#6a6e76'); ctx.fillStyle = m; ctx.beginPath(); ctx.arc(0, 0, r * .98, 0, 7); ctx.fill();
   ctx.fillStyle = lit ? c : '#2a2c30'; ctx.beginPath(); ctx.arc(0, 0, r * .74, 0, 7); ctx.fill();
   ctx.fillStyle = lit ? 'rgba(255,255,255,.6)' : '#141518'; ctx.beginPath(); ctx.arc(0, -r * .1, r * .48, 0, 7); ctx.fill();
+  if (lift > .02) {   // botão saindo do aro: lateral colorida e tampa com brilho
+    const L = lift * r * 1.6, br = r * .7, side = ctx.createLinearGradient(-br, 0, br, 0);
+    side.addColorStop(0, shade(c, -.45)); side.addColorStop(.5, c); side.addColorStop(1, shade(c, -.45));
+    ctx.fillStyle = side; ctx.fillRect(-br, -L, br * 2, L); ctx.beginPath(); ctx.arc(0, 0, br, 0, Math.PI); ctx.fill();
+    ctx.fillStyle = shade(c, .25); ctx.beginPath(); ctx.arc(0, -L, br, 0, 7); ctx.fill();
+    ctx.fillStyle = 'rgba(255,255,255,.85)'; ctx.beginPath(); ctx.arc(0, -L - br * .08, br * .55, 0, 7); ctx.fill();
+  }
   ctx.restore();
 }
 function puck(x, y, r, c, cym, hopo, star) {   // nota: botão com borda branca e tampa branca; hammer-on: mais baixo, tampa maior brilhando; Star Power: estrela
@@ -313,7 +320,7 @@ function scoreHit(lanes, n) {
   S.streak++; S.mult = Math.min(4, 1 + Math.floor(S.streak / 10));
   const m = S.mult * (S.spOn ? 2 : 1);
   S.score += 50 * lanes.length * m; S.rock = Math.min(1, S.rock + (S.spOn ? .05 : .025)); S.ehp -= m; S.ehit = .12;
-  for (const lane of lanes) if (lane >= 0) S.fx.push({ lane, t: 0 });
+  for (const lane of lanes) if (lane >= 0) { S.fx.push({ lane, t: 0 }); S.spring[lane].v += 7 }   // acerto: o botão dá um pulinho
   if (n && n.sp >= 0 && S.spLast[n.sp] === n && !S.spBroken.has(n.sp)) { S.sp = Math.min(1, S.sp + .25); S.spFlash = .6; [880, 1175, 1568].forEach((f, i) => setTimeout(() => tone(f, .1, 'triangle', .05), i * 60)) }   // completou um trecho de Star Power
   if (S.ehp <= 0 && !S.end) finish(true);
 }
@@ -354,6 +361,7 @@ function frame() {
   if (!S) return;
   const now = performance.now(), dt = Math.min(.05, (now - (S.last || now)) / 1000); S.last = now; S.t += dt; S.ehit = Math.max(0, S.ehit - dt); S.spFlash = Math.max(0, S.spFlash - dt); if (S.jolt) S.jolt.t += dt;
   for (const k in S.press) S.press[k] = Math.max(0, S.press[k] - dt);
+  S.spring.forEach((m, i) => { const goal = S.held[i] || S.press[i] > 0 ? 1 : 0, a = 420 * (goal - m.p) - 18 * m.v; m.v += a * dt; m.p += m.v * dt; if (m.p < 0) { m.p = 0; m.v *= -.3 } });   // mola dos botões (quica ao voltar para o aro)
   S.fx.forEach(f => f.t += dt); S.fx = S.fx.filter(f => f.t < .32);
   const st = songTime();
   if (!S.end && S.startAt) {
@@ -399,7 +407,7 @@ function restart() { for (const { src } of S.play) try { src.stop() } catch {} O
 function fresh(song) {
   const notes = song.notes.map(n => ({ ...n })), spLast = {};
   for (const n of notes) if (n.sp >= 0) spLast[n.sp] = n;   // última nota de cada trecho de Star Power
-  return { notes, spLast, spBroken: new Set(), sp: 0, spOn: false, spFlash: 0, sus: null, chain: false, lastHitAt: -9, held: [false, false, false, false, false], strumT: 0, bi: 0,
+  return { notes, spLast, spBroken: new Set(), sp: 0, spOn: false, spFlash: 0, sus: null, chain: false, lastHitAt: -9, held: [false, false, false, false, false], spring: [0, 1, 2, 3, 4].map(() => ({ p: 0, v: 0 })), bi: 0,
     rock: .5, score: 0, streak: 0, mult: 1, fx: [], press: {}, end: false, won: false, msg: null, ehp: S.emax };
 }
 function fit() { const s = Math.min(innerWidth / W, innerHeight / H), dpr = devicePixelRatio || 1; cv.style.width = W * s + 'px'; cv.style.height = H * s + 'px'; cv.width = Math.round(W * s * dpr); cv.height = Math.round(H * s * dpr); ctx.setTransform(cv.width / W, 0, 0, cv.height / H, 0, 0) }
