@@ -23,6 +23,10 @@
     <EmbeddedResource Include="assets\musicas\batalha-3d.mp3" LogicalName="musica3" />
     <EmbeddedResource Include="assets\musicas\vitoria-3d.mp3" LogicalName="musica4" />
     <EmbeddedResource Include="assets\musicas\chefao.mp3" LogicalName="musica5" />
+    <EmbeddedResource Include="assets/musicas/psicodelica.mp3" LogicalName="musica6" />
+    <!-- efeitos sonoros: assets/sons/x.mp3 vira o recurso "som-x" -->
+    <EmbeddedResource Include="assets/sons/*.mp3" LogicalName="som-%(Filename)" />
+    <EmbeddedResource Include="assets/fundos/*.webm" LogicalName="fundo-%(Filename)" />
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="Microsoft.Web.WebView2" Version="1.0.4314.35" />

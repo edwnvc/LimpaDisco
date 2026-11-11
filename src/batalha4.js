@@ -14,7 +14,7 @@ const MOVES = {
   zip: ['se compactou e quicou em você', 'pediu uma senha esquecida'], exe: ['mostrou uma tela azul', 'pediu para reiniciar AGORA'],
   media: ['tocou no volume máximo', 'travou em 99%'],
 };
-let cv, ctx, L, lc, root, S = null, raf = 0, last = 0, actx = null, onEnd = null, loop = null;
+let cv, ctx, L, lc, sw = null, sx, root, S = null, raf = 0, last = 0, actx = null, onEnd = null, loop = null;
 const T = document.createElement('canvas'); T.width = T.height = 32; const tc = T.getContext('2d');   // ladrilho do fundo
 
 const rnd = (a, b) => a + Math.random() * (b - a), clamp = (v, a, b) => Math.max(a, Math.min(b, v)), pick = a => a[Math.floor(Math.random() * a.length)];
@@ -39,19 +39,29 @@ const SFX = {
   swirl: () => { tone(200, 1, 'sawtooth', .05, 1600); tone(203, 1, 'square', .03, 1620) },
   miss: () => tone(1500, .1, 'triangle', .04, 2400), mortal: () => [440, 415, 392, 370].forEach((f, i) => setTimeout(() => tone(f, .14, 'square', .06), i * 110)),
   win: () => [523, 659, 784, 1046, 784, 1046, 1318].forEach((f, i) => setTimeout(() => tone(f, i === 6 ? .5 : .12, 'square', .06), i * 120)),
+  derrota: () => {}, fugir: () => {},
 };
-function startLoop() {   // baixo saltitante + arpejo, 150 bpm; agenda um pouco à frente para não engasgar
-  const a = ac(), step = 60 / 150 / 2, bass = [110, 0, 110, 131, 0, 147, 131, 0, 98, 0, 98, 123, 0, 131, 147, 165], arp = [440, 554, 659, 880, 659, 554];
-  let n = 0, next = a.currentTime + .1;
-  loop = setInterval(() => {
-    while (next < a.currentTime + .25) {
-      const b = bass[n % 16]; if (b) tone(b * (S && S.boss ? .94 : 1), step * .9, 'square', .035, 0, next);
-      if (n % 2 === 0) tone(arp[(n / 2) % arp.length] * (n % 32 < 16 ? 1 : 1.122), step * .5, 'triangle', .025, 0, next);
-      next += step; n++;
-    }
-  }, 60);
+// Sons gravados (embutidos como som-<nome>): quando existem, tocam no lugar do sintetizado.
+const CLIP = { move: 'cursor', ok: 'ok', blip: 'texto', hit: 'bater', smash: 'smash', hurt: 'dano', mortal: 'mortal', miss: 'errou', psi: 'poder', heal: 'cura', win: 'vitoria', derrota: 'derrota', fugir: 'fugir', swirl: 'espiral' };
+const BUF = {};
+let clipsP = null;
+function loadClips() { return clipsP ||= Promise.all([...new Set(Object.values(CLIP))].map(k => fetch('som-' + k).then(r => r.ok ? r.arrayBuffer() : null).then(b => b && ac().decodeAudioData(b)).then(b => { if (b) BUF[k] = b }).catch(() => {}))) }
+function play(buf, vol, loopIt = false) { const s = ac().createBufferSource(), g = ac().createGain(); s.buffer = buf; s.loop = loopIt; g.gain.value = vol; s.connect(g).connect(ac().destination); s.start(); return { s, g } }
+for (const [f, k] of Object.entries(CLIP)) { const synth = SFX[f]; SFX[f] = () => BUF[k] ? play(BUF[k], .45) : synth() }
+let song = null, songAsked = false;
+function loadSong() { if (songAsked) return; songAsked = true; fetch('musica6').then(r => r.ok ? r.arrayBuffer() : null).then(b => b && ac().decodeAudioData(b)).then(b => { song = b }).catch(() => {}) }   // só na primeira batalha: 3 min de áudio ocupam memória
+function startLoop() {   // a música da batalha; se ainda não carregou, tenta de novo em instantes
+  stopLoop(); if (!S) return;
+  if (!song) { loop = { retry: setTimeout(startLoop, 300) }; return }
+  if (ac().state === 'suspended') ac().resume();
+  loop = play(song, .12, true);
 }
-function stopLoop() { clearInterval(loop); loop = null }
+function stopLoop() {
+  if (!loop) return;
+  if (loop.retry) clearTimeout(loop.retry);
+  else { const { s, g } = loop; g.gain.setTargetAtTime(0, ac().currentTime, .08); setTimeout(() => { try { s.stop() } catch {} }, 500) }
+  loop = null;
+}
 
 /* ---------------- roteiro ---------------- */
 function say(text) { S.text = text; S.shown = 0; return new Promise(r => S.wait = r) }               // espera Z
@@ -62,8 +72,10 @@ const hurtMe = d => { S.hp = Math.max(0, S.hp - d); S.shake = .35; S.red = .3; S
 
 async function run() {
   if (!S.retry) {
-    SFX.swirl(); await tween(S, 'swirl', 1, 1100);                                   // espiral cobre a tela
-    S.scene = true; await tween(S, 'swirl', 2, 500);                                  // e se desfaz já na batalha
+    SFX.swirl(); await tween(S, 'swirl', 1, 650); await sleep(350);                  // espiral cobre a tela (igual ao vídeo de referência)
+    if (BUF.espiral) await sleep(Math.max(0, BUF.espiral.duration - 1.1) * 1000);   // tela preta até o som da espiral acabar: a música não pisa nele
+    sw.remove(); sw = null; root.style.background = '#000'; cv.style.visibility = ''; startLoop();
+    S.scene = true; await tween(S, 'swirl', 2, 450);                                  // e a batalha surge do preto
     await say(`• Você topou com ${S.name}!`);
   } else await say(`• ${S.name} ainda está aqui!`);
   for (;;) {
@@ -98,7 +110,7 @@ async function run() {
     } else if (a === 3) { S.defend = true; await say('• Você se protegeu.') }
     else {
       await note('• Você tentou fugir...', 300);
-      if (Math.random() < .65) { await say('• E conseguiu! O arquivo continua no disco.'); return close(false) }
+      if (Math.random() < .65) { SFX.fugir(); await say('• E conseguiu! O arquivo continua no disco.'); return close(false) }
       await say('• Mas não deu!');
     }
     if (S.ehp <= 0) return victory();
@@ -115,7 +127,7 @@ async function run() {
   }
 }
 async function victory() {
-  S.won = true; S.text = ''; stopLoop(); await tween(S, 'efade', 0, 900);
+  S.won = true; S.text = ''; stopLoop(); SFX.derrota(); await tween(S, 'efade', 0, 900);
   SFX.win();
   await say(`• Você derrotou ${S.name}!`);
   await say(`• ${S.name} foi para a Lixeira.\n• ${fmt(S.info.total)} liberados!`);
@@ -136,6 +148,7 @@ function win(x, y, w, h) {   // janela preta de borda branca dupla e cantos arre
   lc.strokeStyle = '#8a8a9a'; lc.beginPath(); lc.roundRect(x + 3.5, y + 3.5, w - 7, h - 7, 2); lc.stroke();
 }
 function background(t) {
+  if (S.vid && S.vid.readyState >= 2) return lc.drawImage(S.vid, 0, 0, W, H);   // fundo animado escolhido (vídeo); sem ele, o padrão desenhado abaixo
   const pal = S.boss ? PAL.boss : PAL[S.type], k = Math.floor(t * 7);
   tc.fillStyle = pal[k % pal.length]; tc.fillRect(0, 0, 32, 32);   // cantos do ladrilho também pintados (senão vaza o quadro anterior)
   for (let i = 8; i > 0; i--) {   // losangos concêntricos com as cores girando
@@ -198,17 +211,19 @@ function draw() {
     }
     if (S.red > 0) { lc.fillStyle = `rgba(255,40,40,${S.red})`; lc.fillRect(0, 0, W, H) }
   } else { lc.clearRect(0, 0, W, H) }
-  if (S.swirl > 0 && S.swirl < 2) {   // espiral de entrada: braços coloridos girando e engrossando até cobrir a tela
-    const k = S.swirl <= 1 ? S.swirl : 2 - S.swirl, cols = S.boss ? ['#e02a1a', '#000'] : ['#ffe14d', '#3a9af0', '#f05aa8', '#5ac85a'];
-    lc.save(); lc.translate(W / 2, H / 2); lc.rotate(t * 7);
-    for (let a = 0; a < 6; a++) {
-      lc.fillStyle = cols[a % cols.length]; lc.beginPath();
-      for (let r = 0; r < 200; r += 4) { const th = a * Math.PI / 3 + r * .05; lc.lineTo(Math.cos(th) * r, Math.sin(th) * r) }
-      for (let r = 196; r >= 0; r -= 4) { const th = a * Math.PI / 3 + r * .05 + k * 1.2; lc.lineTo(Math.cos(th) * r, Math.sin(th) * r) }
-      lc.fill();
+  if (S.swirl > 1 && S.swirl < 2) { lc.fillStyle = `rgba(0,0,0,${2 - S.swirl})`; lc.fillRect(0, 0, W, H) }   // a batalha surge do preto
+  if (sw) {   // espiral de entrada por cima da janela inteira: núcleo preto e um "gancho" em volta, girando e crescendo
+    const w = sw.width, h = sw.height, k = clamp(S.swirl, 0, 1), R = Math.hypot(w, h) * .62 * k * k;
+    sx.clearRect(0, 0, w, h); sx.fillStyle = '#000';
+    if (k >= 1) sx.fillRect(0, 0, w, h);
+    else if (R > 0) {
+      sx.save(); sx.translate(w / 2, h / 2); sx.scale(1.15, 1); sx.rotate(-t * 9);
+      sx.beginPath(); sx.ellipse(0, 0, R * .78, R * .72, 0, 0, 7); sx.fill();
+      sx.beginPath();
+      for (let a = 0; a <= 3.7; a += .1) sx.lineTo(Math.cos(a) * R * .86, Math.sin(a) * R * .86);
+      for (let a = 3.7; a >= 0; a -= .1) { const r = R * (.86 + .14 * Math.sqrt(Math.sin(Math.PI * a / 3.7))); sx.lineTo(Math.cos(a) * r, Math.sin(a) * r) }
+      sx.fill(); sx.restore();
     }
-    lc.restore();
-    if (S.swirl > 1) { lc.fillStyle = `rgba(0,0,0,${2 - S.swirl})`; lc.fillRect(0, 0, W, H) }
   }
   ctx.clearRect(0, 0, cv.width, cv.height); ctx.imageSmoothingEnabled = false; ctx.drawImage(L, 0, 0, cv.width, cv.height);
 }
@@ -245,11 +260,13 @@ function onKey(e) {
   }
 }
 function fit() {
+  if (sw) { sw.width = innerWidth; sw.height = innerHeight }
   const s = Math.max(1, Math.floor(Math.min(innerWidth / W, innerHeight / H) * 4) / 4), dpr = devicePixelRatio || 1;
   cv.style.width = W * s + 'px'; cv.style.height = H * s + 'px'; cv.width = Math.round(W * s * dpr); cv.height = Math.round(H * s * dpr);
 }
 function close(won) {
-  stopLoop(); cancelAnimationFrame(raf); S = null;
+  if (S && S.vid) { S.vid.pause(); URL.revokeObjectURL(S.vid.src) }
+  stopLoop(); cancelAnimationFrame(raf); S = null; sw = null;
   removeEventListener('keydown', onKey, true); removeEventListener('resize', fit);
   root.remove(); onEnd && onEnd(won);
 }
@@ -260,8 +277,9 @@ window.Batalha4 = {
     if (S) return;
     onEnd = end;
     try { await Promise.race([document.fonts.load('12px "Pixelify Sans"'), sleep(800)]) } catch {}
-    root = document.createElement('div'); root.style.cssText = 'position:fixed;inset:0;z-index:100;display:grid;place-items:center;background:#000';
-    cv = document.createElement('canvas'); root.appendChild(cv); document.body.appendChild(root);
+    root = document.createElement('div'); root.style.cssText = 'position:fixed;inset:0;z-index:100;display:grid;place-items:center;background:transparent';   // transparente: a espiral cobre o app
+    cv = document.createElement('canvas'); cv.style.visibility = 'hidden'; root.appendChild(cv);
+    sw = document.createElement('canvas'); sw.style.cssText = 'position:fixed;inset:0;width:100%;height:100%'; root.appendChild(sw); sx = sw.getContext('2d'); document.body.appendChild(root);
     ctx = cv.getContext('2d'); L = document.createElement('canvas'); L.width = W; L.height = H; lc = L.getContext('2d'); fit();
     const lv = Math.log2(1 + info.total / 1048576), boss = info.total >= 1024 ** 3;   // mesma escala de dificuldade das outras batalhas
     const emax = Math.round(clamp(40 + lv * 8, 40, 160) * (boss ? 1.5 : 1) * 1.3);
@@ -274,7 +292,12 @@ window.Batalha4 = {
       swirl: 0, scene: false, efade: 1, blink: 0, smash: 0, psi: 0, shake: 0, red: 0, active: false, defend: false, over: false, won: false,
     };
     addEventListener('keydown', onKey, true); addEventListener('resize', fit);
-    startLoop();
+    fetch('fundo-' + (1 + Math.floor(Math.random() * 3))).then(r => r.ok ? r.blob() : null).then(b => {   // um dos 3 fundos, sorteado
+      if (!b || !S) return; const v = document.createElement('video'); v.muted = true; v.loop = true; v.playsInline = true;
+      v.src = URL.createObjectURL(new Blob([b], { type: 'video/webm' })); v.play().catch(() => {}); S.vid = v;
+    }).catch(() => {});
+    loadSong(); await Promise.race([loadClips(), sleep(700)]);   // espera os sons (curtos) para a espiral já sair com o som certo
+    if (!S) return;
     last = performance.now(); raf = requestAnimationFrame(frame);
     run();
   },
