@@ -19,16 +19,6 @@ Precisa de:
 Na primeira vez o Windows pode mostrar "O Windows protegeu o computador", porque o programa não tem
 assinatura digital: clique em **Mais informações → Executar assim mesmo**.
 
-## Músicas da batalha de ritmo
-
-Cada música fica numa pasta em `assets/ritmo/` (do jeito do Clone Hero: `notes.chart` ou `notes.mid`, áudios `.ogg`/`.opus` e `song.ini`).
-Para um arquivo `.sng`, extraia com:
-
-```
-node tools/sng.js "musica.sng" "assets/ritmo/Nome da Música"
-```
-
-Teclas: bateria D F J K e Espaço (bumbo). Guitarra: aperte D F J K L na hora da nota (acorde: todas juntas); segure nas notas longas; Shift ativa o Star Power.
 
 ## Pastas
 
